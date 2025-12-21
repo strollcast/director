@@ -11,15 +11,17 @@ This is an Astro-based static website that hosts audio podcasts explaining ML re
 - `public/<author>-<year>-<paper>/` - Episode folders containing:
   - `podcast.m4a` - Audio file
   - `script.md` - Podcast transcript
-  - `generate.py` - ElevenLabs generation script
   - `README.md` - Episode metadata
+- `python/` - Podcast generation tools
+  - `generate.py` - ElevenLabs TTS script
+  - `requirements.txt` - Python dependencies
 
 ## Adding New Episodes
 
 1. Create folder in `public/` named `<author>-<year>-<short-name>`
 2. Add `script.md` with the podcast transcript
-3. Add `generate.py` using ElevenLabs API
-4. Generate `podcast.m4a`
+3. Run `python python/generate.py public/<episode-folder>` to generate audio
+4. Add `README.md` with episode metadata
 5. Update `src/pages/index.astro` episodes array
 
 ## Tech Stack

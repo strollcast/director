@@ -26,12 +26,17 @@ npm run build
 
 ## Generating Podcasts
 
-Each episode folder in `public/` contains a `generate.py` script that uses ElevenLabs for text-to-speech:
+The `python/` folder contains the podcast generation script that uses ElevenLabs for text-to-speech:
 
 ```bash
 export ELEVENLABS_API_KEY="your-api-key"
-pip install elevenlabs
-python public/<episode-folder>/generate.py
+pip install -r python/requirements.txt
+python python/generate.py public/<episode-folder>
+```
+
+Example:
+```bash
+python python/generate.py public/zhao-2023-pytorch-fsdp
 ```
 
 Requires `ffmpeg` for audio processing.

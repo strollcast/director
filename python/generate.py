@@ -2,12 +2,18 @@
 """
 Generate podcast audio using ElevenLabs for realistic voices.
 Uses ffmpeg for audio processing (no pydub dependency).
+
+Usage:
+    python generate.py <episode-folder>
+
+Example:
+    python generate.py public/zhao-2023-pytorch-fsdp
 """
 
+import argparse
 import os
 import re
 import subprocess
-import tempfile
 from pathlib import Path
 from elevenlabs import ElevenLabs
 
@@ -20,9 +26,6 @@ if not API_KEY:
 ALEX_VOICE = "pNInz6obpgDQGcFmaJgB"  # Adam - deep male voice
 MAYA_VOICE = "21m00Tcm4TlvDq8ikWAM"  # Rachel - clear female voice
 
-# Use script directory as base
-SCRIPT_DIR = Path(__file__).parent.resolve()
-TEMP_DIR = SCRIPT_DIR / "temp_segments"
 
 def parse_podcast_script(filepath):
     """Parse the podcast markdown and extract speaker segments."""
@@ -65,6 +68,7 @@ def parse_podcast_script(filepath):
 
     return segments
 
+
 def generate_audio_elevenlabs(client, text, voice_id, output_path):
     """Generate audio using ElevenLabs API."""
     try:
@@ -91,6 +95,7 @@ def generate_audio_elevenlabs(client, text, voice_id, output_path):
         print(f"\nError generating audio: {e}")
         return False
 
+
 def generate_silence(output_path, duration_ms=500):
     """Generate a silent audio file using ffmpeg."""
     cmd = [
@@ -102,13 +107,13 @@ def generate_silence(output_path, duration_ms=500):
     ]
     subprocess.run(cmd, capture_output=True)
 
-def concatenate_with_ffmpeg(audio_files, output_path):
+
+def concatenate_with_ffmpeg(audio_files, output_path, temp_dir):
     """Concatenate audio files using ffmpeg."""
     # Create a file list for ffmpeg
-    list_file = TEMP_DIR / "filelist.txt"
+    list_file = temp_dir / "filelist.txt"
     with open(list_file, 'w') as f:
         for audio_file in audio_files:
-            # Add the audio file
             f.write(f"file '{audio_file}'\n")
 
     # Use ffmpeg to concatenate
@@ -120,6 +125,7 @@ def concatenate_with_ffmpeg(audio_files, output_path):
     ]
     result = subprocess.run(cmd, capture_output=True)
     return result.returncode == 0
+
 
 def get_audio_duration(filepath):
     """Get audio duration using ffprobe."""
@@ -134,9 +140,33 @@ def get_audio_duration(filepath):
     except:
         return 0
 
+
 def main():
+    parser = argparse.ArgumentParser(
+        description='Generate podcast audio from a script using ElevenLabs.'
+    )
+    parser.add_argument(
+        'episode_folder',
+        help='Path to the episode folder containing script.md'
+    )
+    args = parser.parse_args()
+
+    episode_dir = Path(args.episode_folder).resolve()
+    script_path = episode_dir / "script.md"
+    temp_dir = episode_dir / "temp_segments"
+
+    if not episode_dir.exists():
+        print(f"Error: Episode folder not found: {episode_dir}")
+        return 1
+
+    if not script_path.exists():
+        print(f"Error: Script not found: {script_path}")
+        return 1
+
+    episode_name = episode_dir.name
+
     print("=" * 60)
-    print("ZeRO Paper Podcast Generator (ElevenLabs)")
+    print(f"Podcast Generator: {episode_name}")
     print("=" * 60)
 
     # Initialize ElevenLabs client
@@ -153,11 +183,10 @@ def main():
         print(f"      Could not fetch subscription info: {e}")
 
     # Create temp directory
-    TEMP_DIR.mkdir(exist_ok=True)
+    temp_dir.mkdir(exist_ok=True)
 
     # Parse the podcast script
     print("\n[2/5] Parsing podcast script...")
-    script_path = SCRIPT_DIR / "script.md"
     segments = parse_podcast_script(script_path)
     print(f"      Found {len(segments)} segments")
 
@@ -176,10 +205,9 @@ def main():
         speaker = segment['speaker']
         text = segment['text']
 
-        output_path = TEMP_DIR / f"segment_{i:04d}.mp3"
+        output_path = temp_dir / f"segment_{i:04d}.mp3"
 
         if speaker == 'PAUSE':
-            # Create silence file
             generate_silence(output_path, 800)
             audio_files.append(output_path)
         else:
@@ -188,7 +216,7 @@ def main():
             if generate_audio_elevenlabs(client, text, voice_id, output_path):
                 audio_files.append(output_path)
                 # Add a small pause after each segment
-                pause_path = TEMP_DIR / f"pause_{i:04d}.mp3"
+                pause_path = temp_dir / f"pause_{i:04d}.mp3"
                 generate_silence(pause_path, 300)
                 audio_files.append(pause_path)
 
@@ -201,13 +229,13 @@ def main():
 
     # Combine all segments
     print("\n[4/5] Combining audio segments with ffmpeg...")
-    m4a_output = SCRIPT_DIR / "podcast.m4a"
+    m4a_output = episode_dir / "podcast.m4a"
 
-    if concatenate_with_ffmpeg(audio_files, m4a_output):
+    if concatenate_with_ffmpeg(audio_files, m4a_output, temp_dir):
         print(f"      Created: {m4a_output.name}")
     else:
         print("      Error combining audio files")
-        return
+        return 1
 
     # Get duration
     duration_seconds = get_audio_duration(m4a_output)
@@ -219,11 +247,11 @@ def main():
 
     # Cleanup temp files
     print("\n[5/5] Cleaning up temporary files...")
-    for f in TEMP_DIR.glob("*.mp3"):
+    for f in temp_dir.glob("*.mp3"):
         f.unlink()
-    for f in TEMP_DIR.glob("*.txt"):
+    for f in temp_dir.glob("*.txt"):
         f.unlink()
-    TEMP_DIR.rmdir()
+    temp_dir.rmdir()
 
     print("\n" + "=" * 60)
     print("COMPLETE!")
@@ -235,5 +263,8 @@ def main():
     print("  - AirDrop the file to your iPhone")
     print("  - Or upload to iCloud Drive")
 
+    return 0
+
+
 if __name__ == "__main__":
-    main()
+    exit(main())

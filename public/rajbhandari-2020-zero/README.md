@@ -25,14 +25,15 @@ This podcast episode covers Microsoft's ZeRO paper, which introduced memory-effi
 
 - `podcast.m4a` - The audio podcast (17 min)
 - `script.md` - Full transcript
-- `generate.py` - Generation script (requires ElevenLabs API key)
 
 ## Regenerating
 
+From the repository root:
+
 ```bash
 export ELEVENLABS_API_KEY="your-api-key"
-pip install elevenlabs
-python generate.py
+pip install -r python/requirements.txt
+python python/generate.py public/rajbhandari-2020-zero
 ```
 
 Requires `ffmpeg` for audio processing.

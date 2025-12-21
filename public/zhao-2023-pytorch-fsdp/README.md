@@ -25,14 +25,15 @@ This podcast episode covers Meta's paper on PyTorch FSDP (Fully Sharded Data Par
 
 - `podcast.m4a` - The audio podcast (24 min)
 - `script.md` - Full transcript
-- `generate.py` - Generation script (requires ElevenLabs API key)
 
 ## Regenerating
 
+From the repository root:
+
 ```bash
 export ELEVENLABS_API_KEY="your-api-key"
-pip install elevenlabs
-python generate.py
+pip install -r python/requirements.txt
+python python/generate.py public/zhao-2023-pytorch-fsdp
 ```
 
 Requires `ffmpeg` for audio processing.
