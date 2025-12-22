@@ -23,7 +23,7 @@ This podcast episode covers Meta's paper on PyTorch FSDP (Fully Sharded Data Par
 
 ## Files
 
-- `podcast.m4a` - The audio podcast (24 min)
+- `zhao-2023-pytorch-fsdp.m4a` - The audio podcast (24 min)
 - `script.md` - Full transcript
 
 ## Regenerating

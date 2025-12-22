@@ -23,7 +23,7 @@ This podcast episode covers Microsoft's ZeRO paper, which introduced memory-effi
 
 ## Files
 
-- `podcast.m4a` - The audio podcast (17 min)
+- `rajbhandari-2020-zero.m4a` - The audio podcast (17 min)
 - `script.md` - Full transcript
 
 ## Regenerating

@@ -59,14 +59,14 @@ const episodes = [
             ))}
           </div>
           <audio controls preload="metadata" class="audio-player">
-            <source src={`/${episode.folder}/podcast.m4a`} type="audio/mp4" />
+            <source src={`/${episode.folder}/${episode.folder}.m4a`} type="audio/mp4" />
             Your browser does not support the audio element.
           </audio>
           <div class="episode-actions">
             <a href={episode.arxiv} class="btn btn-secondary" target="_blank" rel="noopener noreferrer">
               Read Paper
             </a>
-            <a href={`/${episode.folder}/podcast.m4a`} class="btn btn-secondary" download>
+            <a href={`/${episode.folder}/${episode.folder}.m4a`} class="btn btn-secondary" download>
               Download
             </a>
             <a href={`/${episode.folder}/script.md`} class="btn btn-secondary">

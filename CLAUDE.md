@@ -22,7 +22,7 @@ ElevenLabs voice IDs:
 - `src/pages/how-to.astro` - Technical documentation page
 - `public/` - Static assets including episode folders
 - `public/<author>-<year>-<paper>/` - Episode folders containing:
-  - `podcast.m4a` - Audio file
+  - `<folder-name>.m4a` - Audio file (e.g., `zhao-2023-pytorch-fsdp.m4a`)
   - `script.md` - Podcast transcript (uses **ERIC:** and **MAYA:** for speaker tags)
   - `README.md` - Episode metadata
 - `python/` - Podcast generation tools

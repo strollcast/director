@@ -289,7 +289,7 @@ def main():
 
     # Combine all segments
     print("\n[4/5] Combining audio segments with ffmpeg...")
-    m4a_output = episode_dir / "podcast.m4a"
+    m4a_output = episode_dir / f"{episode_name}.m4a"
 
     if concatenate_with_ffmpeg(audio_files, m4a_output, temp_dir):
         print(f"      Created: {m4a_output.name}")
