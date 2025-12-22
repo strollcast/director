@@ -220,14 +220,191 @@ def get_audio_duration(filepath):
         return 0
 
 
+def analyze_loudness(filepath):
+    """Analyze audio loudness using ffmpeg loudnorm filter (first pass)."""
+    cmd = [
+        'ffmpeg', '-i', str(filepath), '-af',
+        'loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json',
+        '-f', 'null', '-'
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    # Parse the JSON output from stderr
+    output = result.stderr
+    # Find the JSON block in the output
+    json_start = output.rfind('{')
+    json_end = output.rfind('}') + 1
+    if json_start != -1 and json_end > json_start:
+        try:
+            return json.loads(output[json_start:json_end])
+        except json.JSONDecodeError:
+            return None
+    return None
+
+
+def normalize_audio(input_path, output_path, stats=None):
+    """Normalize audio using ffmpeg loudnorm filter (two-pass for accuracy).
+
+    Target: -16 LUFS (podcast standard)
+    """
+    if stats is None:
+        # Single-pass mode (less accurate but faster)
+        cmd = [
+            'ffmpeg', '-y', '-i', str(input_path), '-af',
+            'loudnorm=I=-16:TP=-1.5:LRA=11',
+            '-c:a', 'libmp3lame', '-q:a', '2',
+            str(output_path)
+        ]
+    else:
+        # Two-pass mode with measured stats (more accurate)
+        measured_i = stats.get('input_i', '-24')
+        measured_tp = stats.get('input_tp', '-2')
+        measured_lra = stats.get('input_lra', '7')
+        measured_thresh = stats.get('input_thresh', '-34')
+        offset = stats.get('target_offset', '0')
+
+        cmd = [
+            'ffmpeg', '-y', '-i', str(input_path), '-af',
+            f'loudnorm=I=-16:TP=-1.5:LRA=11:'
+            f'measured_I={measured_i}:measured_TP={measured_tp}:'
+            f'measured_LRA={measured_lra}:measured_thresh={measured_thresh}:'
+            f'offset={offset}:linear=true',
+            '-c:a', 'libmp3lame', '-q:a', '2',
+            str(output_path)
+        ]
+
+    result = subprocess.run(cmd, capture_output=True)
+    return result.returncode == 0
+
+
+def normalize_and_reassemble(episode_dir, script_path):
+    """Reassemble podcast from cache with normalized audio (no API calls)."""
+    episode_name = episode_dir.name
+    temp_dir = episode_dir / "temp_segments"
+
+    print("=" * 60)
+    print(f"Normalize & Reassemble: {episode_name}")
+    print("=" * 60)
+
+    # Parse the podcast script
+    print("\n[1/5] Parsing podcast script...")
+    segments = parse_podcast_script(script_path)
+    speech_segments = [s for s in segments if s['speaker'] in ['ERIC', 'MAYA']]
+    print(f"      Found {len(segments)} segments ({len(speech_segments)} speech)")
+
+    # Verify all segments are cached before proceeding
+    print("\n[2/5] Verifying cache...")
+    missing = []
+    for i, segment in enumerate(segments):
+        if segment['speaker'] in ['ERIC', 'MAYA']:
+            voice_id = ELEVENLABS_ERIC_VOICE if segment['speaker'] == 'ERIC' else ELEVENLABS_MAYA_VOICE
+            cache_key = get_cache_key(segment['text'], voice_id)
+            if not get_cached_audio(cache_key):
+                missing.append((i, segment['speaker'], segment['text'][:50]))
+
+    if missing:
+        print(f"      ERROR: {len(missing)} segments missing from cache:")
+        for i, speaker, text in missing[:5]:
+            print(f"        - Segment {i} ({speaker}): {text}...")
+        if len(missing) > 5:
+            print(f"        ... and {len(missing) - 5} more")
+        print("\n      Run without --normalize first to generate missing segments.")
+        return 1
+
+    print(f"      All {len(speech_segments)} speech segments found in cache")
+
+    # Create temp directory
+    temp_dir.mkdir(exist_ok=True)
+
+    # Analyze and normalize audio segments
+    print("\n[3/5] Analyzing and normalizing audio segments...")
+    print("      (Two-pass loudnorm to -16 LUFS)")
+
+    audio_files = []
+    total = len(segments)
+
+    for i, segment in enumerate(segments):
+        speaker = segment['speaker']
+        text = segment['text']
+
+        if speaker == 'PAUSE':
+            pause_path = temp_dir / f"segment_{i:04d}.mp3"
+            generate_silence(pause_path, 800)
+            audio_files.append(pause_path)
+        else:
+            voice_id = ELEVENLABS_ERIC_VOICE if speaker == 'ERIC' else ELEVENLABS_MAYA_VOICE
+            cache_key = get_cache_key(text, voice_id)
+            cached_path = get_cached_audio(cache_key)
+
+            # Normalize the cached audio
+            normalized_path = temp_dir / f"segment_{i:04d}.mp3"
+
+            # Two-pass normalization: analyze then normalize
+            stats = analyze_loudness(cached_path)
+            if stats:
+                normalize_audio(cached_path, normalized_path, stats)
+            else:
+                # Fall back to single-pass if analysis fails
+                normalize_audio(cached_path, normalized_path)
+
+            audio_files.append(normalized_path)
+
+            # Add a small pause after each segment
+            pause_path = temp_dir / f"pause_{i:04d}.mp3"
+            generate_silence(pause_path, 300)
+            audio_files.append(pause_path)
+
+        # Progress indicator
+        pct = (i + 1) * 100 // total
+        bar = '#' * (pct // 5) + '-' * (20 - pct // 5)
+        print(f"\r      [{bar}] {pct}% ({i+1}/{total})", end='', flush=True)
+
+    print(f"\n      Normalized {len(audio_files)} audio files")
+
+    # Combine all segments
+    print("\n[4/5] Combining normalized audio segments...")
+    m4a_output = episode_dir / f"{episode_name}.m4a"
+
+    if concatenate_with_ffmpeg(audio_files, m4a_output, temp_dir):
+        print(f"      Created: {m4a_output.name}")
+    else:
+        print("      Error combining audio files")
+        return 1
+
+    # Get duration
+    duration_seconds = get_audio_duration(m4a_output)
+    duration_minutes = duration_seconds / 60
+    size_mb = m4a_output.stat().st_size / (1024 * 1024)
+
+    print(f"      Duration: {duration_minutes:.1f} minutes")
+    print(f"      Size: {size_mb:.1f} MB")
+
+    # Cleanup temp files
+    print("\n[5/5] Cleaning up temporary files...")
+    for f in temp_dir.glob("*.mp3"):
+        f.unlink()
+    for f in temp_dir.glob("*.txt"):
+        f.unlink()
+    temp_dir.rmdir()
+
+    print("\n" + "=" * 60)
+    print("COMPLETE!")
+    print("=" * 60)
+    print(f"\nNormalized podcast saved to: {m4a_output}")
+    print(f"Duration: {duration_minutes:.1f} minutes")
+    print(f"Size: {size_mb:.1f} MB")
+
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Generate podcast audio from a script.',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python generate.py ../public/zhao-2023-pytorch-fsdp --preview   # Fast preview with macOS TTS
-  python generate.py ../public/zhao-2023-pytorch-fsdp             # Production with ElevenLabs
+  python generate.py ../public/zhao-2023-pytorch-fsdp --preview    # Fast preview with macOS TTS
+  python generate.py ../public/zhao-2023-pytorch-fsdp              # Production with ElevenLabs
+  python generate.py ../public/zhao-2023-pytorch-fsdp --normalize  # Reassemble from cache with normalization
         """
     )
     parser.add_argument(
@@ -238,6 +415,11 @@ Examples:
         '--preview',
         action='store_true',
         help='Use macOS TTS for quick preview (no API key needed)'
+    )
+    parser.add_argument(
+        '--normalize',
+        action='store_true',
+        help='Reassemble podcast from cache with audio normalization (no API calls)'
     )
     args = parser.parse_args()
 
@@ -252,6 +434,10 @@ Examples:
     if not script_path.exists():
         print(f"Error: Script not found: {script_path}")
         return 1
+
+    # Handle normalize mode (reassemble from cache with normalization)
+    if args.normalize:
+        return normalize_and_reassemble(episode_dir, script_path)
 
     episode_name = episode_dir.name
     use_macos = args.preview
