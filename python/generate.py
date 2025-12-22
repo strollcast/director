@@ -27,7 +27,7 @@ if not API_KEY:
     raise ValueError("Please set ELEVENLABS_API_KEY environment variable")
 
 # ElevenLabs voice IDs - using pre-made voices
-ALEX_VOICE = "pNInz6obpgDQGcFmaJgB"  # Adam - deep male voice
+ERIC_VOICE = "gP8LZQ3GGokV0MP5JYjg"  # Eric - male voice
 MAYA_VOICE = "21m00Tcm4TlvDq8ikWAM"  # Rachel - clear female voice
 
 # Cache directory
@@ -78,7 +78,7 @@ def parse_podcast_script(filepath):
         if not line:
             continue
 
-        # Match speaker lines: **ALEX:** or **MAYA:**
+        # Match speaker lines: **ERIC:** or **MAYA:**
         speaker_match = re.match(r'\*\*([A-Z]+):\*\*\s*(.*)', line)
         if speaker_match:
             speaker = speaker_match.group(1)
@@ -91,7 +91,7 @@ def parse_podcast_script(filepath):
             text = text.replace('*', '')   # Remove italic markers
             text = text.strip()
 
-            if text and speaker in ['ALEX', 'MAYA']:
+            if text and speaker in ['ERIC', 'MAYA']:
                 segments.append({
                     'speaker': speaker,
                     'text': text
@@ -264,7 +264,7 @@ def main():
             generate_silence(output_path, 800)
             audio_files.append(output_path)
         else:
-            voice_id = ALEX_VOICE if speaker == 'ALEX' else MAYA_VOICE
+            voice_id = ERIC_VOICE if speaker == 'ERIC' else MAYA_VOICE
 
             result = generate_audio_elevenlabs(client, text, voice_id, output_path)
             if result:
