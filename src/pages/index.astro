@@ -9,7 +9,8 @@ const episodes = [
     duration: "24 min",
     folder: "zhao-2023-pytorch-fsdp",
     description: "Meta's production experiences building fully sharded data parallel training into PyTorch.",
-    topics: ["Distributed Training", "Memory Optimization", "PyTorch"]
+    topics: ["Distributed Training", "Memory Optimization", "PyTorch"],
+    arxiv: "https://arxiv.org/abs/2304.11277"
   },
   {
     title: "ZeRO: Memory Optimizations Toward Training Trillion Parameter Models",
@@ -18,7 +19,8 @@ const episodes = [
     duration: "17 min",
     folder: "rajbhandari-2020-zero",
     description: "Microsoft's breakthrough technique for eliminating memory redundancy in distributed training, enabling trillion-parameter models.",
-    topics: ["Distributed Training", "Memory Optimization", "DeepSpeed"]
+    topics: ["Distributed Training", "Memory Optimization", "DeepSpeed"],
+    arxiv: "https://arxiv.org/abs/1910.02054"
   }
 ];
 ---
@@ -61,11 +63,14 @@ const episodes = [
             Your browser does not support the audio element.
           </audio>
           <div class="episode-actions">
+            <a href={episode.arxiv} class="btn btn-secondary" target="_blank" rel="noopener noreferrer">
+              Read Paper
+            </a>
             <a href={`/${episode.folder}/podcast.m4a`} class="btn btn-secondary" download>
-              Download Episode
+              Download
             </a>
             <a href={`/${episode.folder}/script.md`} class="btn btn-secondary">
-              View Transcript
+              Transcript
             </a>
           </div>
         </article>
