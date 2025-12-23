@@ -4,6 +4,10 @@ Listen to research papers while you stroll.
 
 Strollcast transforms dense academic papers into engaging audio podcasts. Each episode features a conversational format with two hosts breaking down complex concepts into accessible explanations—perfect for walks, commutes, or any time you're on the move.
 
+## iOS App
+
+Listen on the go with the native iOS app: [StrollcastApp](https://github.com/strollcast/StrollcastApp)
+
 ## Episodes
 
 - **PyTorch FSDP: Experiences on Scaling Fully Sharded Data Parallel** (Zhao et al., 2023) - 24 min
