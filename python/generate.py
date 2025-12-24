@@ -220,6 +220,43 @@ def get_audio_duration(filepath):
         return 0
 
 
+def format_vtt_timestamp(seconds):
+    """Format seconds as VTT timestamp (HH:MM:SS.mmm)."""
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = seconds % 60
+    return f"{hours:02d}:{minutes:02d}:{secs:06.3f}"
+
+
+def generate_webvtt(segments_with_timing, output_path):
+    """Generate a WebVTT transcript file with speaker labels.
+
+    Args:
+        segments_with_timing: List of dicts with 'speaker', 'text', 'start', 'end'
+        output_path: Path to save the VTT file
+    """
+    lines = ["WEBVTT", ""]
+
+    for i, segment in enumerate(segments_with_timing):
+        if segment['speaker'] == 'PAUSE':
+            continue
+
+        start = format_vtt_timestamp(segment['start'])
+        end = format_vtt_timestamp(segment['end'])
+        speaker = segment['speaker'].capitalize()  # Eric, Maya
+        text = segment['text']
+
+        lines.append(f"{i + 1}")
+        lines.append(f"{start} --> {end}")
+        lines.append(f"<v {speaker}>{text}")
+        lines.append("")
+
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(lines))
+
+    return output_path
+
+
 def analyze_loudness(filepath):
     """Analyze audio loudness using ffmpeg loudnorm filter (first pass)."""
     cmd = [
@@ -316,11 +353,13 @@ def normalize_and_reassemble(episode_dir, script_path):
     temp_dir.mkdir(exist_ok=True)
 
     # Analyze and normalize audio segments
-    print("\n[3/5] Analyzing and normalizing audio segments...")
+    print("\n[3/6] Analyzing and normalizing audio segments...")
     print("      (Two-pass loudnorm to -16 LUFS)")
 
     audio_files = []
+    segments_with_timing = []
     total = len(segments)
+    current_time = 0.0
 
     for i, segment in enumerate(segments):
         speaker = segment['speaker']
@@ -330,6 +369,7 @@ def normalize_and_reassemble(episode_dir, script_path):
             pause_path = temp_dir / f"segment_{i:04d}.mp3"
             generate_silence(pause_path, 800)
             audio_files.append(pause_path)
+            current_time += 0.8  # 800ms pause
         else:
             voice_id = ELEVENLABS_ERIC_VOICE if speaker == 'ERIC' else ELEVENLABS_MAYA_VOICE
             cache_key = get_cache_key(text, voice_id)
@@ -347,11 +387,20 @@ def normalize_and_reassemble(episode_dir, script_path):
                 normalize_audio(cached_path, normalized_path)
 
             audio_files.append(normalized_path)
+            segment_duration = get_audio_duration(normalized_path)
+            segments_with_timing.append({
+                'speaker': speaker,
+                'text': text,
+                'start': current_time,
+                'end': current_time + segment_duration
+            })
+            current_time += segment_duration
 
             # Add a small pause after each segment
             pause_path = temp_dir / f"pause_{i:04d}.mp3"
             generate_silence(pause_path, 300)
             audio_files.append(pause_path)
+            current_time += 0.3  # 300ms pause
 
         # Progress indicator
         pct = (i + 1) * 100 // total
@@ -361,7 +410,7 @@ def normalize_and_reassemble(episode_dir, script_path):
     print(f"\n      Normalized {len(audio_files)} audio files")
 
     # Combine all segments
-    print("\n[4/5] Combining normalized audio segments...")
+    print("\n[4/6] Combining normalized audio segments...")
     m4a_output = episode_dir / f"{episode_name}.m4a"
 
     if concatenate_with_ffmpeg(audio_files, m4a_output, temp_dir):
@@ -378,8 +427,25 @@ def normalize_and_reassemble(episode_dir, script_path):
     print(f"      Duration: {duration_minutes:.1f} minutes")
     print(f"      Size: {size_mb:.1f} MB")
 
+    # Generate WebVTT transcript
+    print("\n[5/6] Generating WebVTT transcript...")
+    folder_parts = episode_name.split('-')
+    if len(folder_parts) >= 3:
+        author = folder_parts[0]
+        year = folder_parts[1]
+        name = '-'.join(folder_parts[2:])
+        podcast_id = f"{name}-{year}"
+    else:
+        podcast_id = episode_name
+
+    api_dir = episode_dir.parent / "api"
+    api_dir.mkdir(exist_ok=True)
+    vtt_output = api_dir / f"{podcast_id}.vtt"
+    generate_webvtt(segments_with_timing, vtt_output)
+    print(f"      Created: {vtt_output}")
+
     # Cleanup temp files
-    print("\n[5/5] Cleaning up temporary files...")
+    print("\n[6/6] Cleaning up temporary files...")
     for f in temp_dir.glob("*.mp3"):
         f.unlink()
     for f in temp_dir.glob("*.txt"):
@@ -390,6 +456,7 @@ def normalize_and_reassemble(episode_dir, script_path):
     print("COMPLETE!")
     print("=" * 60)
     print(f"\nNormalized podcast saved to: {m4a_output}")
+    print(f"Transcript saved to: {vtt_output}")
     print(f"Duration: {duration_minutes:.1f} minutes")
     print(f"Size: {size_mb:.1f} MB")
 
@@ -490,9 +557,11 @@ Examples:
         print("      (Using cache when available)")
 
     audio_files = []
+    segments_with_timing = []
     total = len(segments)
     cache_hits = 0
     api_calls = 0
+    current_time = 0.0
 
     for i, segment in enumerate(segments):
         speaker = segment['speaker']
@@ -503,24 +572,43 @@ Examples:
         if speaker == 'PAUSE':
             generate_silence(output_path, 800)
             audio_files.append(output_path)
+            current_time += 0.8  # 800ms pause
         else:
             if use_macos:
                 voice = MACOS_ERIC_VOICE if speaker == 'ERIC' else MACOS_MAYA_VOICE
                 if generate_audio_macos(text, voice, output_path):
                     audio_files.append(output_path)
+                    segment_duration = get_audio_duration(output_path)
+                    segments_with_timing.append({
+                        'speaker': speaker,
+                        'text': text,
+                        'start': current_time,
+                        'end': current_time + segment_duration
+                    })
+                    current_time += segment_duration
                     # Add a small pause after each segment
                     pause_path = temp_dir / f"pause_{i:04d}.mp3"
                     generate_silence(pause_path, 300)
                     audio_files.append(pause_path)
+                    current_time += 0.3  # 300ms pause
             else:
                 voice_id = ELEVENLABS_ERIC_VOICE if speaker == 'ERIC' else ELEVENLABS_MAYA_VOICE
                 result = generate_audio_elevenlabs(client, text, voice_id, output_path)
                 if result:
                     audio_files.append(output_path)
+                    segment_duration = get_audio_duration(output_path)
+                    segments_with_timing.append({
+                        'speaker': speaker,
+                        'text': text,
+                        'start': current_time,
+                        'end': current_time + segment_duration
+                    })
+                    current_time += segment_duration
                     # Add a small pause after each segment
                     pause_path = temp_dir / f"pause_{i:04d}.mp3"
                     generate_silence(pause_path, 300)
                     audio_files.append(pause_path)
+                    current_time += 0.3  # 300ms pause
 
                     if result == "cached":
                         cache_hits += 1
@@ -559,8 +647,28 @@ Examples:
     print(f"      Duration: {duration_minutes:.1f} minutes")
     print(f"      Size: {size_mb:.1f} MB")
 
+    # Generate WebVTT transcript
+    print("\n[5/6] Generating WebVTT transcript...")
+    # Determine the podcast ID from folder name (e.g., "qiu-2025-gated-attention" -> "gated-attention-2025")
+    folder_parts = episode_name.split('-')
+    if len(folder_parts) >= 3:
+        # Format: author-year-name -> name-year
+        author = folder_parts[0]
+        year = folder_parts[1]
+        name = '-'.join(folder_parts[2:])
+        podcast_id = f"{name}-{year}"
+    else:
+        podcast_id = episode_name
+
+    # Save VTT to public/api/<podcast_id>.vtt
+    api_dir = episode_dir.parent / "api"
+    api_dir.mkdir(exist_ok=True)
+    vtt_output = api_dir / f"{podcast_id}.vtt"
+    generate_webvtt(segments_with_timing, vtt_output)
+    print(f"      Created: {vtt_output}")
+
     # Cleanup temp files
-    print("\n[5/5] Cleaning up temporary files...")
+    print("\n[6/6] Cleaning up temporary files...")
     for f in temp_dir.glob("*.mp3"):
         f.unlink()
     for f in temp_dir.glob("*.txt"):
@@ -571,16 +679,13 @@ Examples:
     print("COMPLETE!")
     print("=" * 60)
     print(f"\nPodcast saved to: {m4a_output}")
+    print(f"Transcript saved to: {vtt_output}")
     print(f"Duration: {duration_minutes:.1f} minutes")
     print(f"Size: {size_mb:.1f} MB")
 
     if use_macos:
         print("\nThis is a PREVIEW using macOS TTS.")
         print("For production quality, run without --preview flag.")
-    else:
-        print("\nTo transfer to iPhone:")
-        print("  - AirDrop the file to your iPhone")
-        print("  - Or upload to iCloud Drive")
 
     return 0
 

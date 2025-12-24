@@ -26,6 +26,7 @@ This is an Astro-based static website that hosts audio podcasts explaining ML re
 - `src/pages/how-to.astro` - Technical documentation page
 - `public/` - Static assets including episode folders
 - `public/api/episodes.json` - Episode list API for iOS app (keep in sync!)
+- `public/api/<podcast-id>.vtt` - WebVTT transcripts with timestamps (auto-generated)
 - `public/<author>-<year>-<paper>/` - Episode folders containing:
   - `<folder-name>.m4a` - Audio file (e.g., `zhao-2023-pytorch-fsdp.m4a`)
   - `script.md` - Podcast transcript (uses **ERIC:** and **MAYA:** for speaker tags)
