@@ -1,0 +1,19 @@
+[workspace]
+name = "strollcast-agent"
+version = "0.1.0"
+description = "Script generation from arXiv papers"
+channels = ["conda-forge"]
+platforms = ["osx-arm64", "osx-64", "linux-64"]
+
+[tasks]
+generate = "python generate_from_paper.py"
+
+[dependencies]
+python = ">=3.11"
+pip = "*"
+wheel = "*"
+
+[pypi-dependencies]
+anthropic = ">=0.40.0"
+httpx = ">=0.27.0"
+pymupdf = ">=1.24.0"

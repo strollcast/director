@@ -33,7 +33,7 @@ try:
     import httpx
 except ImportError:
     print("Missing dependencies. Install with:")
-    print("  pip install anthropic httpx pymupdf")
+    print("  pixi install")
     sys.exit(1)
 
 # Optional PDF extraction
@@ -67,7 +67,7 @@ def extract_arxiv_id(input_str: str) -> str:
 
 def fetch_arxiv_metadata(arxiv_id: str) -> dict:
     """Fetch paper metadata from arXiv API."""
-    url = f"http://export.arxiv.org/api/query?id_list={arxiv_id}"
+    url = f"https://export.arxiv.org/api/query?id_list={arxiv_id}"
 
     response = httpx.get(url, timeout=30)
     response.raise_for_status()
@@ -75,12 +75,18 @@ def fetch_arxiv_metadata(arxiv_id: str) -> dict:
     # Parse XML response (simple regex extraction to avoid lxml dependency)
     xml = response.text
 
-    def extract_tag(tag: str) -> str:
-        match = re.search(f"<{tag}[^>]*>(.*?)</{tag}>", xml, re.DOTALL)
+    # Extract the entry block first (contains the actual paper data)
+    entry_match = re.search(r"<entry>(.*?)</entry>", xml, re.DOTALL)
+    if not entry_match:
+        raise ValueError(f"Could not find paper with arXiv ID: {arxiv_id}")
+    entry = entry_match.group(1)
+
+    def extract_tag(tag: str, text: str = entry) -> str:
+        match = re.search(f"<{tag}[^>]*>(.*?)</{tag}>", text, re.DOTALL)
         return match.group(1).strip() if match else ""
 
-    def extract_all(tag: str) -> list:
-        return re.findall(f"<{tag}[^>]*>(.*?)</{tag}>", xml, re.DOTALL)
+    def extract_all(tag: str, text: str = entry) -> list:
+        return re.findall(f"<{tag}[^>]*>(.*?)</{tag}>", text, re.DOTALL)
 
     title = extract_tag("title")
     abstract = extract_tag("summary")
@@ -96,7 +102,7 @@ def fetch_arxiv_metadata(arxiv_id: str) -> dict:
     published = extract_tag("published")[:10]  # YYYY-MM-DD
 
     if not title:
-        raise ValueError(f"Could not find paper with arXiv ID: {arxiv_id}")
+        raise ValueError(f"Could not parse title for arXiv ID: {arxiv_id}")
 
     return {
         "arxiv_id": arxiv_id,
