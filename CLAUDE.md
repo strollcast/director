@@ -36,10 +36,42 @@ This is an Astro-based static website that hosts audio podcasts explaining ML re
 - `public/<author>-<year>-<paper>/` - Episode folders containing:
   - `<folder-name>.m4a` - Audio file (e.g., `zhao-2023-pytorch-fsdp.m4a`)
   - `script.md` - Podcast transcript (uses **ERIC:** and **MAYA:** for speaker tags)
+  - `sources.json` - Source references linking script content to paper sections
   - `README.md` - Episode metadata
-- `python/` - Podcast generation tools
-  - `generate.py` - ElevenLabs TTS script
-  - `pixi.toml` - Pixi package manager configuration
+
+## Source Annotations
+
+Link podcast content to original paper sections using inline source IDs:
+
+```markdown
+**ERIC:** SGMV stands for Segmented Gather Matrix-Vector multiplication. {{src:sgmv-def}}
+
+**MAYA:** It groups requests by their LoRA adapter. {{src:sgmv-grouping}}
+```
+
+Create a corresponding `sources.json` in the episode folder:
+
+```json
+{
+  "sgmv-def": {
+    "page": 4,
+    "section": "3.1",
+    "excerpt": "We design a new CUDA kernel called SGMV..."
+  },
+  "sgmv-grouping": {
+    "page": 5,
+    "section": "3.2",
+    "excerpt": "SGMV parallelizes the feature-weight multiplication..."
+  }
+}
+```
+
+The `{{src:...}}` annotations are automatically stripped before TTS generation.
+
+## Python Tools
+
+- `python/generate.py` - ElevenLabs TTS script
+- `python/pixi.toml` - Pixi package manager configuration
 
 ## Adding New Episodes
 

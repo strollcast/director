@@ -86,7 +86,8 @@ def parse_podcast_script(filepath):
             speaker = speaker_match.group(1)
             text = speaker_match.group(2)
 
-            # Clean up the text - remove markdown formatting
+            # Clean up the text - remove markdown formatting and source annotations
+            text = re.sub(r'\{\{src:[^}]+\}\}', '', text)  # Remove {{src:...}} annotations
             text = re.sub(r'\*\*\[.*?\]\*\*', '', text)  # Remove bold brackets
             text = re.sub(r'\[.*?\]', '', text)  # Remove brackets
             text = text.replace('**', '')  # Remove remaining bold markers

@@ -54,7 +54,8 @@ def parse_script(script_content: str) -> list[dict]:
             speaker = speaker_match.group(1)
             text = speaker_match.group(2)
 
-            # Clean up markdown
+            # Clean up markdown and source annotations
+            text = re.sub(r"\{\{src:[^}]+\}\}", "", text)  # Remove {{src:...}}
             text = re.sub(r"\*\*\[.*?\]\*\*", "", text)
             text = re.sub(r"\[.*?\]", "", text)
             text = text.replace("**", "").replace("*", "").strip()
