@@ -7,7 +7,13 @@ This is an Astro-based static website that hosts audio podcasts explaining ML re
 - **Podcast name:** Strollcast (not "Gradient Descent" or other names)
 - **Hosts:** Eric and Maya (AI-generated voices, no last names)
 - **Host introduction:** Always clarify they are virtual/AI hosts (e.g., "We're your AI hosts, here to make research accessible while you're on the move")
-- **Sign-off:** "Until next time, keep strolling" / "And may your gradients never explode"
+- **Quizzes:** Always include 2 quizzes at the end of each episode to test listener understanding
+- **Sign-off:** Use a different sign-off for each episode. Options:
+  - "Until next time, keep strolling" / "And may your gradients never explode"
+  - "Until next time, keep strolling" / "And may your loss always converge"
+  - "Until next time, keep strolling" / "And may your tensors never misalign"
+  - "Until next time, keep strolling" / "And may your batch sizes be ever in your favor"
+  - "Until next time, keep strolling" / "And may your learning rate be just right"
 
 ## Voice Configuration
 

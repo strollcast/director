@@ -1,7 +1,18 @@
 {
   "version": "1.0",
-  "updated": "2025-12-25T00:00:00Z",
+  "updated": "2025-12-26T00:00:00Z",
   "episodes": [
+    {
+      "id": "punica-2023",
+      "title": "Punica: Multi-Tenant LoRA Serving",
+      "authors": "Chen et al.",
+      "year": 2023,
+      "duration": "14 min",
+      "description": "Efficient multi-tenant LoRA serving via SGMV kernels: batch requests across different adapters for 12x higher throughput.",
+      "audioPath": "/chen-2023-punica/chen-2023-punica.m4a",
+      "transcriptPath": "/api/punica-2023.vtt",
+      "paperUrl": "https://arxiv.org/abs/2310.18547"
+    },
     {
       "id": "qlora-2023",
       "title": "QLoRA: Efficient Finetuning of Quantized LLMs",
