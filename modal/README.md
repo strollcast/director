@@ -31,7 +31,7 @@ R2_PUBLIC_DOMAIN=<optional-custom-domain>
 ### 3. Deploy the App
 
 ```bash
-cd static-site/modal
+cd director/modal
 modal deploy -m src.app
 ```
 
