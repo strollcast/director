@@ -225,16 +225,38 @@ def generate_episode(script_content: str, episode_name: str) -> dict:
 def main(
     script_path: str = None,
     episode_name: str = None,
+    metadata_path: str = None,
+    skip_db: bool = False,
 ):
     """
     CLI entrypoint for episode generation.
 
     Usage:
-        modal run -m src.generator --script-path ./script.md --episode-name zhao-2023-pytorch-fsdp
+        modal run -m src.generator \\
+            --script-path ./script.md \\
+            --episode-name zhao-2023-pytorch-fsdp \\
+            --metadata-path ./metadata.json
+
+    The metadata.json file should contain:
+    {
+        "id": "pytorch-fsdp-2023",
+        "title": "PyTorch FSDP: Experiences on Scaling Fully Sharded Data Parallel",
+        "authors": "Zhao et al.",
+        "year": 2023,
+        "description": "Meta's production experiences...",
+        "paper_url": "https://arxiv.org/abs/2304.11277",
+        "topics": ["Distributed Training", "Memory Optimization", "PyTorch"]
+    }
+
+    Args:
+        script_path: Path to script.md file
+        episode_name: Episode folder name (derived from path if not provided)
+        metadata_path: Path to JSON file with episode metadata
+        skip_db: Skip D1 database update (just generate audio)
     """
     if not script_path:
         print("Error: --script-path is required")
-        print("Usage: modal run -m src.generator --script-path <path> --episode-name <name>")
+        print("Usage: modal run -m src.generator --script-path <path> --metadata-path <path>")
         return
 
     from pathlib import Path
@@ -264,3 +286,51 @@ def main(
     print(f"Segments:   {result['segment_count']}")
     print(f"Cache hits: {result['cache_hits']}")
     print(f"API calls:  {result['api_calls']}")
+
+    # Update D1 database if metadata provided
+    if not skip_db:
+        if not metadata_path:
+            print()
+            print("⚠️  Skipping D1 update: no metadata file provided")
+            print("   Provide --metadata-path to update database")
+            print("   Or use --skip-db to suppress this warning")
+            return
+
+        metadata_file = Path(metadata_path)
+        if not metadata_file.exists():
+            print(f"Error: Metadata file not found: {metadata_path}")
+            return
+
+        metadata = json.loads(metadata_file.read_text())
+
+        # Validate required fields
+        required = ["id", "title", "authors", "year", "description"]
+        missing = [f for f in required if f not in metadata]
+        if missing:
+            print(f"Error: Missing required fields in metadata: {missing}")
+            return
+
+        from .database import upsert_episode
+
+        # Format duration string
+        duration_mins = int(result['duration_minutes'])
+        duration_str = f"{duration_mins} min"
+
+        episode_data = {
+            "id": metadata["id"],
+            "title": metadata["title"],
+            "authors": metadata["authors"],
+            "year": metadata["year"],
+            "description": metadata["description"],
+            "duration": duration_str,
+            "duration_seconds": int(result['duration_seconds']),
+            "audio_url": result['audio_url'],
+            "transcript_url": result['vtt_url'],
+            "paper_url": metadata.get("paper_url"),
+            "topics": metadata.get("topics", []),
+        }
+
+        print()
+        print("Updating D1 database...")
+        upsert_episode(episode_data)
+        print(f"✓ Episode '{metadata['id']}' saved to database")

@@ -119,27 +119,3 @@ def upload_transcript(podcast_id: str, vtt_content: str) -> str:
     return f"https://{public_domain}/{key}"
 
 
-def upload_episodes_json(episodes_data: dict) -> str:
-    """
-    Upload episodes.json API file to R2 output bucket.
-
-    Args:
-        episodes_data: Episode metadata dictionary
-
-    Returns:
-        Public URL of the uploaded file
-    """
-    import json
-
-    client = get_r2_client()
-    key = "api/episodes.json"
-
-    client.put_object(
-        Bucket=OUTPUT_BUCKET,
-        Key=key,
-        Body=json.dumps(episodes_data, indent=2).encode("utf-8"),
-        ContentType="application/json",
-    )
-
-    public_domain = os.environ.get("R2_PUBLIC_DOMAIN", f"{OUTPUT_BUCKET}.r2.dev")
-    return f"https://{public_domain}/{key}"

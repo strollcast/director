@@ -13,7 +13,7 @@ modal setup  # Authenticate with Modal
 
 ### 2. Create Modal Secrets
 
-Create two secrets in the Modal dashboard (https://modal.com/secrets):
+Create three secrets in the Modal dashboard (https://modal.com/secrets):
 
 **elevenlabs:**
 ```
@@ -28,6 +28,11 @@ R2_SECRET_ACCESS_KEY=<your-secret>
 R2_PUBLIC_DOMAIN=<optional-custom-domain>
 ```
 
+**cloudflare-d1:**
+```
+CLOUDFLARE_API_TOKEN=<your-api-token>
+```
+
 ### 3. Deploy the App
 
 ```bash
@@ -39,12 +44,32 @@ modal deploy -m src.app
 
 ### Generate an Episode
 
+1. Create a `metadata.json` file in the episode folder:
+
+```json
+{
+    "id": "pytorch-fsdp-2023",
+    "title": "PyTorch FSDP: Experiences on Scaling Fully Sharded Data Parallel",
+    "authors": "Zhao et al.",
+    "year": 2023,
+    "description": "Meta's production experiences building fully sharded data parallel training into PyTorch.",
+    "paper_url": "https://arxiv.org/abs/2304.11277",
+    "topics": ["Distributed Training", "Memory Optimization", "PyTorch"]
+}
+```
+
+2. Run the generator:
+
 ```bash
 # From the modal/ directory
 modal run -m src.generator \
     --script-path ../public/zhao-2023-pytorch-fsdp/script.md \
-    --episode-name zhao-2023-pytorch-fsdp
+    --metadata-path ../public/zhao-2023-pytorch-fsdp/metadata.json
 ```
+
+This generates audio, uploads to R2, and updates the D1 database.
+
+Use `--skip-db` to generate audio without updating the database.
 
 ### Run via Python
 
@@ -68,6 +93,7 @@ src/
 ├── __init__.py      # Package exports
 ├── app.py           # Modal App, image, secrets, constants
 ├── audio.py         # ffmpeg processing (normalize, concat, VTT)
+├── database.py      # D1 database client for episode metadata
 ├── storage.py       # R2 client (cache + output buckets)
 └── generator.py     # Episode generation functions
 ```

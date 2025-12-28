@@ -13,6 +13,7 @@ image = (
     .pip_install(
         "elevenlabs>=1.0.0",
         "boto3>=1.34.0",
+        "httpx>=0.27.0",
     )
 )
 
@@ -23,6 +24,7 @@ app = modal.App(
     secrets=[
         modal.Secret.from_name("elevenlabs"),
         modal.Secret.from_name("cloudflare-r2"),
+        modal.Secret.from_name("cloudflare-d1"),
     ],
 )
 

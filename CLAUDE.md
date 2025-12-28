@@ -28,16 +28,13 @@ This is an Astro-based static website that hosts audio podcasts explaining ML re
 ## Project Structure
 
 - `src/layouts/Layout.astro` - Main layout with dark theme and navigation
-- `src/pages/index.astro` - Homepage with episode list and audio players
+- `src/pages/index.astro` - Homepage (fetches episodes from api.strollcast.com)
 - `src/pages/how-to.astro` - Technical documentation page
-- `public/` - Static assets including episode folders
-- `public/api/episodes.json` - Episode list API for iOS app (keep in sync!)
-- `public/api/<podcast-id>.vtt` - WebVTT transcripts with timestamps (auto-generated)
 - `public/<author>-<year>-<paper>/` - Episode folders containing:
-  - `<folder-name>.m4a` - Audio file (e.g., `zhao-2023-pytorch-fsdp.m4a`)
   - `script.md` - Podcast transcript (uses **ERIC:** and **MAYA:** for speaker tags)
   - `sources.json` - Source references linking script content to paper sections
-  - `README.md` - Episode metadata
+- `api/` - Cloudflare Worker serving episodes from D1 database
+- `modal/` - Modal serverless functions for podcast generation
 
 ## Source Annotations
 
@@ -60,11 +57,26 @@ The `{{page:...}}` annotations are automatically stripped before TTS generation.
 
 1. Create folder in `public/` named `<author>-<year>-<short-name>`
 2. Add `script.md` with the podcast transcript
-3. Generate production audio: `cd python && pixi run python generate.py ../public/<episode-folder>`
-4. Normalize audio: `cd python && pixi run python generate.py ../public/<episode-folder> --normalize`
-5. Add `README.md` with episode metadata
-6. Update `src/pages/index.astro` episodes array
-7. Update `public/api/episodes.json` with the new episode (used by iOS app)
+3. Add `metadata.json` with episode metadata:
+   ```json
+   {
+       "id": "short-name-year",
+       "title": "Paper Title",
+       "authors": "Author et al.",
+       "year": 2023,
+       "description": "Brief description of the paper",
+       "paper_url": "https://arxiv.org/abs/...",
+       "topics": ["Topic1", "Topic2", "Topic3"]
+   }
+   ```
+4. Generate audio and update database:
+   ```bash
+   cd modal
+   modal run -m src.generator \
+       --script-path ../public/<folder>/script.md \
+       --metadata-path ../public/<folder>/metadata.json
+   ```
+   This generates audio, uploads to R2, and updates the D1 database.
 
 ## Tech Stack
 
