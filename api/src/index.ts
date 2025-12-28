@@ -13,6 +13,7 @@ interface Episode {
   audio_url: string;
   transcript_url: string | null;
   paper_url: string | null;
+  topics: string | null;
   created_at: string;
   updated_at: string;
   published: number;
@@ -31,6 +32,7 @@ function toApiResponse(episode: Episode) {
     audioUrl: episode.audio_url,
     transcriptUrl: episode.transcript_url,
     paperUrl: episode.paper_url,
+    topics: episode.topics ? JSON.parse(episode.topics) : [],
   };
 }
 
