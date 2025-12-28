@@ -7,3 +7,28 @@ account_id = "24828d2a24b818aa2e994213d8a562c6"
 binding = "DB"
 database_name = "strollcast"
 database_id = "9c9e8c33-9960-46d2-a092-7a7a239a5c5e"
+
+# Queue for podcast generation jobs
+[[queues.producers]]
+queue = "strollcast-jobs"
+binding = "JOBS_QUEUE"
+
+[[queues.consumers]]
+queue = "strollcast-jobs"
+max_batch_size = 1
+max_batch_timeout = 30
+max_retries = 3
+dead_letter_queue = "strollcast-jobs-dlq"
+
+# R2 bucket for intermediate files
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "strollcast-output"
+
+# Modal web endpoint URLs (set via wrangler secret or environment)
+# These will be available after deploying Modal with `modal deploy`
+# Format: https://<workspace>--strollcast-<function>-web.modal.run
+[vars]
+# Placeholder URLs - update after Modal deployment
+MODAL_TRANSCRIPT_URL = "https://marius-22149--strollcast-generate-transcript-web.modal.run"
+MODAL_EPISODE_URL = "https://marius-22149--strollcast-generate-episode-web.modal.run"

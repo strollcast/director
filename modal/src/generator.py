@@ -9,6 +9,7 @@ import json
 import os
 import re
 
+import modal
 from .app import app, VOICES, MODEL_ID, VOICE_SETTINGS, TARGET_LUFS
 
 
@@ -218,6 +219,76 @@ def generate_episode(script_content: str, episode_name: str) -> dict:
         "segment_count": len([s for s in segments if s["speaker"] != "PAUSE"]),
         "cache_hits": cache_hits,
         "api_calls": api_calls,
+    }
+
+
+@app.function(timeout=900)
+@modal.web_endpoint(method="POST")
+def generate_episode_web(data: dict) -> dict:
+    """
+    Web endpoint for episode generation (called from Cloudflare Worker).
+
+    Expected data:
+    {
+        "script_content": "**ERIC:** Hello...",
+        "metadata": {
+            "id": "paper-2024",
+            "title": "Paper Title",
+            "authors": "Author et al.",
+            "year": 2024,
+            "description": "Paper description",
+            "paper_url": "https://arxiv.org/abs/...",
+            "topics": ["Topic1", "Topic2"]
+        }
+    }
+    """
+    from .database import upsert_episode
+
+    script_content = data.get("script_content")
+    metadata = data.get("metadata")
+
+    if not script_content:
+        return {"error": "script_content is required"}
+    if not metadata:
+        return {"error": "metadata is required"}
+
+    # Derive episode_name from metadata
+    # Format: first_author_lastname-year-short_title
+    authors = metadata.get("authors", "unknown")
+    first_author = authors.split(",")[0].split(" and ")[0].strip()
+    last_name = first_author.split()[-1].lower() if first_author else "unknown"
+    year = metadata.get("year", 2024)
+    title_slug = metadata.get("id", "episode").split("-")[0]
+    episode_name = f"{last_name}-{year}-{title_slug}"
+
+    # Generate episode
+    result = generate_episode.local(script_content, episode_name)
+
+    # Update database
+    duration_mins = int(result["duration_minutes"])
+    duration_str = f"{duration_mins} min"
+
+    episode_data = {
+        "id": metadata["id"],
+        "title": metadata["title"],
+        "authors": metadata.get("authors", "Unknown"),
+        "year": metadata.get("year", 2024),
+        "description": metadata.get("description", ""),
+        "duration": duration_str,
+        "duration_seconds": int(result["duration_seconds"]),
+        "audio_url": result["audio_url"],
+        "transcript_url": result["vtt_url"],
+        "paper_url": metadata.get("paper_url"),
+        "topics": metadata.get("topics", []),
+    }
+
+    upsert_episode(episode_data)
+
+    return {
+        "episode_id": metadata["id"],
+        "audio_url": result["audio_url"],
+        "vtt_url": result["vtt_url"],
+        "duration_seconds": result["duration_seconds"],
     }
 
 

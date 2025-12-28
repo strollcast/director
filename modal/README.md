@@ -33,6 +33,11 @@ R2_PUBLIC_DOMAIN=<optional-custom-domain>
 CLOUDFLARE_API_TOKEN=<your-api-token>
 ```
 
+**anthropic:**
+```
+ANTHROPIC_API_KEY=<your-api-key>
+```
+
 ### 3. Deploy the App
 
 ```bash
@@ -95,7 +100,8 @@ src/
 ├── audio.py         # ffmpeg processing (normalize, concat, VTT)
 ├── database.py      # D1 database client for episode metadata
 ├── storage.py       # R2 client (cache + output buckets)
-└── generator.py     # Episode generation functions
+├── generator.py     # Episode generation functions
+└── transcript.py    # Script generation from arXiv papers
 ```
 
 ## Functions
@@ -104,6 +110,20 @@ src/
 |----------|-------------|---------|
 | `generate_segment` | Single TTS segment with caching | 60s |
 | `generate_episode` | Full episode orchestration | 15min |
+| `generate_transcript` | Generate script from arXiv paper | 5min |
+
+## Web Endpoints
+
+These endpoints are called by the Cloudflare Worker for the workflow queue:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `generate_transcript_web` | POST | Generate podcast script from arXiv ID |
+| `generate_episode_web` | POST | Generate audio from script and metadata |
+
+After deploying, the URLs will be:
+- `https://<workspace>--strollcast-generate-transcript-web.modal.run`
+- `https://<workspace>--strollcast-generate-episode-web.modal.run`
 
 ## Cache Flow
 
