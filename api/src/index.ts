@@ -261,22 +261,44 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
       // Fetch arXiv metadata
       const metadata = await fetchArxivMetadata(arxivId);
 
-      // Create job
+      // Create job - unique constraint prevents duplicate active jobs
       const jobId = generateUUID();
-      await env.DB.prepare(
-        `INSERT INTO jobs (id, arxiv_id, arxiv_url, status, title, authors, year, abstract)
-         VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)`
-      )
-        .bind(
-          jobId,
-          arxivId,
-          arxivUrl,
-          metadata.title,
-          metadata.authors,
-          metadata.year,
-          metadata.abstract
+      try {
+        await env.DB.prepare(
+          `INSERT INTO jobs (id, arxiv_id, arxiv_url, status, title, authors, year, abstract)
+           VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)`
         )
-        .run();
+          .bind(
+            jobId,
+            arxivId,
+            arxivUrl,
+            metadata.title,
+            metadata.authors,
+            metadata.year,
+            metadata.abstract
+          )
+          .run();
+      } catch (error) {
+        // Race condition: another request created the job first
+        if (String(error).includes("UNIQUE constraint failed")) {
+          const racingJob = await env.DB.prepare(
+            `SELECT * FROM jobs WHERE arxiv_id = ? AND status NOT IN ('failed', 'completed') LIMIT 1`
+          )
+            .bind(arxivId)
+            .first<Job>();
+
+          if (racingJob) {
+            return Response.json(
+              {
+                message: "Job already in progress (concurrent request)",
+                job: toJobResponse(racingJob),
+              },
+              { status: 200, headers: corsHeaders }
+            );
+          }
+        }
+        throw error;
+      }
 
       // Send to queue
       await env.JOBS_QUEUE.send({
