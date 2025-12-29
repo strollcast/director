@@ -1,13 +1,13 @@
 import { generateTranscript } from "./transcript";
+import { generateEpisode, uploadEpisode, uploadTranscript } from "./audio";
 
 export interface Env {
   DB: D1Database;
   JOBS_QUEUE: Queue;
   R2: R2Bucket;
-  // Anthropic API key for transcript generation
+  // API keys
   ANTHROPIC_API_KEY: string;
-  // Modal web endpoint URL for audio generation
-  MODAL_EPISODE_URL: string;
+  ELEVENLABS_API_KEY: string;
 }
 
 // ---------- Episode Types ----------
@@ -437,34 +437,64 @@ async function handleGenerateAudio(jobId: string, env: Env): Promise<void> {
   // Generate episode ID from title
   const episodeId = generateEpisodeId(job.title || "untitled", job.year || 2024);
 
-  // Call Modal web endpoint to generate audio
-  const response = await fetch(env.MODAL_EPISODE_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      script_content: scriptContent,
-      metadata: {
-        id: episodeId,
-        title: job.title,
-        authors: job.authors,
-        year: job.year,
-        description: job.abstract,
-        paper_url: job.arxiv_url,
-        topics: [],
-      },
-    }),
-  });
+  // Derive episode name
+  const firstAuthor = (job.authors || "unknown").split(",")[0].split(" and ")[0].trim();
+  const lastName = firstAuthor.split(" ").pop()?.toLowerCase() || "unknown";
+  const episodeName = `${lastName}-${job.year || 2024}-${episodeId.split("-")[0]}`;
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Modal episode generation failed: ${response.status} ${text}`);
-  }
+  // Generate audio directly in the Worker
+  console.log(`Generating audio for ${episodeName}...`);
+  const result = await generateEpisode(
+    scriptContent,
+    episodeName,
+    env.ELEVENLABS_API_KEY,
+    env.R2
+  );
 
-  const modalResponse = (await response.json()) as { episode_id: string; error?: string };
+  console.log(
+    `Audio generated: ${result.segmentCount} segments, ` +
+    `${result.cacheHits} cache hits, ${result.apiCalls} API calls`
+  );
 
-  if (modalResponse.error) {
-    throw new Error(`Modal error: ${modalResponse.error}`);
-  }
+  // Upload audio and transcript to R2
+  const audioUrl = await uploadEpisode(env.R2, episodeName, result.audioData);
+  const vttUrl = await uploadTranscript(env.R2, episodeId, result.vttContent);
+
+  // Format duration string
+  const durationMins = Math.round(result.durationSeconds / 60);
+  const durationStr = `${durationMins} min`;
+
+  // Upsert episode to database
+  await env.DB.prepare(
+    `INSERT INTO episodes (id, title, authors, year, description, duration, duration_seconds, audio_url, transcript_url, paper_url, topics, published)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+     ON CONFLICT(id) DO UPDATE SET
+       title = excluded.title,
+       authors = excluded.authors,
+       year = excluded.year,
+       description = excluded.description,
+       duration = excluded.duration,
+       duration_seconds = excluded.duration_seconds,
+       audio_url = excluded.audio_url,
+       transcript_url = excluded.transcript_url,
+       paper_url = excluded.paper_url,
+       topics = excluded.topics,
+       updated_at = datetime('now')`
+  )
+    .bind(
+      episodeId,
+      job.title,
+      job.authors,
+      job.year,
+      job.abstract,
+      durationStr,
+      Math.round(result.durationSeconds),
+      audioUrl,
+      vttUrl,
+      job.arxiv_url,
+      JSON.stringify([])
+    )
+    .run();
 
   // Update job as completed
   await env.DB.prepare(
@@ -480,6 +510,8 @@ async function handleGenerateAudio(jobId: string, env: Env): Promise<void> {
 
   // Clean up active folder
   await env.R2.delete(scriptKey);
+
+  console.log(`Episode ${episodeId} completed: ${audioUrl}`);
 }
 
 function generateEpisodeId(title: string, year: number): string {

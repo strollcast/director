@@ -25,10 +25,6 @@ dead_letter_queue = "strollcast-jobs-dlq"
 binding = "R2"
 bucket_name = "strollcast-output"
 
-# Modal web endpoint URL for audio generation
-# Set via: npx wrangler secret put MODAL_EPISODE_URL
-[vars]
-MODAL_EPISODE_URL = "https://marius-22149--strollcast-generate-episode-web.modal.run"
-
 # Secrets (set via wrangler secret put):
 # - ANTHROPIC_API_KEY: For transcript generation via Claude API
+# - ELEVENLABS_API_KEY: For audio generation via ElevenLabs API
