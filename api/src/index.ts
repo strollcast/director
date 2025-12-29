@@ -224,7 +224,24 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
         );
       }
 
-      // Check if job already exists for this arxiv_id
+      // Check if episode already exists for this arXiv paper
+      const existingEpisode = await env.DB.prepare(
+        `SELECT * FROM episodes WHERE paper_url LIKE ? AND published = 1 LIMIT 1`
+      )
+        .bind(`%${arxivId}%`)
+        .first<Episode>();
+
+      if (existingEpisode) {
+        return Response.json(
+          {
+            message: "Episode already exists for this paper",
+            episode: toApiResponse(existingEpisode),
+          },
+          { status: 200, headers: corsHeaders }
+        );
+      }
+
+      // Check if job already exists for this arxiv_id (in progress)
       const existingJob = await env.DB.prepare(
         `SELECT * FROM jobs WHERE arxiv_id = ? AND status NOT IN ('failed', 'completed') LIMIT 1`
       )
@@ -232,10 +249,13 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
         .first<Job>();
 
       if (existingJob) {
-        return Response.json(toJobResponse(existingJob), {
-          status: 200,
-          headers: corsHeaders,
-        });
+        return Response.json(
+          {
+            message: "Job already in progress",
+            job: toJobResponse(existingJob),
+          },
+          { status: 200, headers: corsHeaders }
+        );
       }
 
       // Fetch arXiv metadata
@@ -367,13 +387,6 @@ async function handleQueue(
 }
 
 async function handleGenerateTranscript(jobId: string, env: Env): Promise<void> {
-  // Update status
-  await env.DB.prepare(
-    `UPDATE jobs SET status = 'generating_transcript', updated_at = datetime('now') WHERE id = ?`
-  )
-    .bind(jobId)
-    .run();
-
   // Get job details
   const job = await env.DB.prepare(`SELECT * FROM jobs WHERE id = ?`)
     .bind(jobId)
@@ -383,6 +396,27 @@ async function handleGenerateTranscript(jobId: string, env: Env): Promise<void> 
     throw new Error(`Job ${jobId} not found`);
   }
 
+  // Check if script already exists in R2 (idempotency)
+  const scriptKey = `active/${jobId}/script.md`;
+  const existingScript = await env.R2.head(scriptKey);
+  if (existingScript) {
+    console.log(`Script already exists for job ${jobId}, skipping transcript generation`);
+    // Proceed directly to audio stage
+    await env.JOBS_QUEUE.send({
+      job_id: jobId,
+      stage: "generate_audio",
+      attempt: 1,
+    } as QueueMessage);
+    return;
+  }
+
+  // Update status
+  await env.DB.prepare(
+    `UPDATE jobs SET status = 'generating_transcript', updated_at = datetime('now') WHERE id = ?`
+  )
+    .bind(jobId)
+    .run();
+
   // Generate transcript directly in the Worker
   const result = await generateTranscript(job.arxiv_id, env.ANTHROPIC_API_KEY);
   const scriptContent = result.script;
@@ -390,7 +424,6 @@ async function handleGenerateTranscript(jobId: string, env: Env): Promise<void> 
   console.log(`Transcript generated for ${job.arxiv_id}, source: ${result.contentSource}`);
 
   // Save script to R2
-  const scriptKey = `active/${jobId}/script.md`;
   await env.R2.put(scriptKey, scriptContent);
 
   // Update job with script URL
@@ -410,13 +443,6 @@ async function handleGenerateTranscript(jobId: string, env: Env): Promise<void> 
 }
 
 async function handleGenerateAudio(jobId: string, env: Env): Promise<void> {
-  // Update status
-  await env.DB.prepare(
-    `UPDATE jobs SET status = 'generating_audio', updated_at = datetime('now') WHERE id = ?`
-  )
-    .bind(jobId)
-    .run();
-
   // Get job details
   const job = await env.DB.prepare(`SELECT * FROM jobs WHERE id = ?`)
     .bind(jobId)
@@ -426,6 +452,43 @@ async function handleGenerateAudio(jobId: string, env: Env): Promise<void> {
     throw new Error(`Job ${jobId} not found`);
   }
 
+  // Generate episode ID from title
+  const episodeId = generateEpisodeId(job.title || "untitled", job.year || 2024);
+
+  // Check if episode already exists in database (idempotency)
+  const existingEpisode = await env.DB.prepare(
+    `SELECT * FROM episodes WHERE id = ? AND published = 1`
+  )
+    .bind(episodeId)
+    .first<Episode>();
+
+  if (existingEpisode) {
+    console.log(`Episode ${episodeId} already exists, marking job as completed`);
+    // Mark job as completed and clean up
+    await env.DB.prepare(
+      `UPDATE jobs
+       SET status = 'completed',
+           episode_id = ?,
+           completed_at = datetime('now'),
+           updated_at = datetime('now')
+       WHERE id = ?`
+    )
+      .bind(episodeId, jobId)
+      .run();
+
+    // Clean up active folder if exists
+    const scriptKey = `active/${jobId}/script.md`;
+    await env.R2.delete(scriptKey);
+    return;
+  }
+
+  // Update status
+  await env.DB.prepare(
+    `UPDATE jobs SET status = 'generating_audio', updated_at = datetime('now') WHERE id = ?`
+  )
+    .bind(jobId)
+    .run();
+
   // Read script from R2
   const scriptKey = `active/${jobId}/script.md`;
   const scriptObject = await env.R2.get(scriptKey);
@@ -433,9 +496,6 @@ async function handleGenerateAudio(jobId: string, env: Env): Promise<void> {
     throw new Error(`Script not found at ${scriptKey}`);
   }
   const scriptContent = await scriptObject.text();
-
-  // Generate episode ID from title
-  const episodeId = generateEpisodeId(job.title || "untitled", job.year || 2024);
 
   // Derive episode name
   const firstAuthor = (job.authors || "unknown").split(",")[0].split(" and ")[0].trim();
