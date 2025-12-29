@@ -8,11 +8,6 @@ Strollcast transforms dense academic papers into engaging audio podcasts. Each e
 
 Listen on the go with the native iOS app: [StrollcastApp](https://github.com/strollcast/StrollcastApp). Features offline downloads, background playback, synchronized transcripts with tap-to-seek, and Zotero integration for saving papers to your library.
 
-## Episodes
-
-- **PyTorch FSDP: Experiences on Scaling Fully Sharded Data Parallel** (Zhao et al., 2023) - 24 min
-- **ZeRO: Memory Optimizations Toward Training Trillion Parameter Models** (Rajbhandari et al., 2020) - 17 min
-
 ## Development
 
 This is an [Astro](https://astro.build) static site.
