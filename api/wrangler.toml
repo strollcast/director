@@ -25,10 +25,10 @@ dead_letter_queue = "strollcast-jobs-dlq"
 binding = "R2"
 bucket_name = "strollcast-output"
 
-# Modal web endpoint URLs (set via wrangler secret or environment)
-# These will be available after deploying Modal with `modal deploy`
-# Format: https://<workspace>--strollcast-<function>-web.modal.run
+# Modal web endpoint URL for audio generation
+# Set via: npx wrangler secret put MODAL_EPISODE_URL
 [vars]
-# Placeholder URLs - update after Modal deployment
-MODAL_TRANSCRIPT_URL = "https://marius-22149--strollcast-generate-transcript-web.modal.run"
 MODAL_EPISODE_URL = "https://marius-22149--strollcast-generate-episode-web.modal.run"
+
+# Secrets (set via wrangler secret put):
+# - ANTHROPIC_API_KEY: For transcript generation via Claude API

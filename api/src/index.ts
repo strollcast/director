@@ -1,9 +1,12 @@
+import { generateTranscript } from "./transcript";
+
 export interface Env {
   DB: D1Database;
   JOBS_QUEUE: Queue;
   R2: R2Bucket;
-  // Modal web endpoint URLs
-  MODAL_TRANSCRIPT_URL: string;
+  // Anthropic API key for transcript generation
+  ANTHROPIC_API_KEY: string;
+  // Modal web endpoint URL for audio generation
   MODAL_EPISODE_URL: string;
 }
 
@@ -380,25 +383,11 @@ async function handleGenerateTranscript(jobId: string, env: Env): Promise<void> 
     throw new Error(`Job ${jobId} not found`);
   }
 
-  // Call Modal web endpoint to generate transcript
-  const response = await fetch(env.MODAL_TRANSCRIPT_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ arxiv_id: job.arxiv_id }),
-  });
+  // Generate transcript directly in the Worker
+  const result = await generateTranscript(job.arxiv_id, env.ANTHROPIC_API_KEY);
+  const scriptContent = result.script;
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Modal transcript generation failed: ${response.status} ${text}`);
-  }
-
-  const modalResponse = (await response.json()) as { script: string; error?: string };
-
-  if (modalResponse.error) {
-    throw new Error(`Modal error: ${modalResponse.error}`);
-  }
-
-  const scriptContent = modalResponse.script;
+  console.log(`Transcript generated for ${job.arxiv_id}, source: ${result.contentSource}`);
 
   // Save script to R2
   const scriptKey = `active/${jobId}/script.md`;
