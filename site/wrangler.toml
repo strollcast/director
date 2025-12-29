@@ -1,0 +1,16 @@
+# Cloudflare Pages configuration
+name = "strollcast"
+compatibility_date = "2024-12-01"
+pages_build_output_dir = "dist"
+
+# Environment variables are set via:
+# - Cloudflare Dashboard > Pages > Settings > Environment variables
+# - Or: wrangler pages secret put <NAME>
+#
+# Required secrets:
+# - AUTH_SECRET: Generate with `openssl rand -base64 32`
+# - AUTH_TRUST_HOST: Set to "true"
+# - GITHUB_CLIENT_ID: From GitHub OAuth app
+# - GITHUB_CLIENT_SECRET: From GitHub OAuth app
+# - GOOGLE_CLIENT_ID: From Google Cloud Console
+# - GOOGLE_CLIENT_SECRET: From Google Cloud Console

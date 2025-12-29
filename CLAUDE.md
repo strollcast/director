@@ -1,6 +1,8 @@
 # Strollcast
 
-This is an Astro-based static website that hosts audio podcasts explaining ML research papers.
+Strollcast transforms ML research papers into audio podcasts. The project consists of:
+- **site/** - Astro SSR website (Cloudflare Pages)
+- **api/** - Cloudflare Worker API for podcast generation
 
 ## Podcast Format
 
@@ -17,81 +19,110 @@ This is an Astro-based static website that hosts audio podcasts explaining ML re
 
 ## Voice Configuration
 
-### macOS TTS (preview)
-- **Eric:** Daniel (British male)
-- **Maya:** Samantha (American female)
-
 ### ElevenLabs (production)
 - **Eric:** `gP8LZQ3GGokV0MP5JYjg` - Male voice
 - **Maya:** `21m00Tcm4TlvDq8ikWAM` - Rachel, clear female voice
 
+### macOS TTS (preview)
+- **Eric:** Daniel (British male)
+- **Maya:** Samantha (American female)
+
 ## Project Structure
 
-- `src/layouts/Layout.astro` - Main layout with dark theme and navigation
-- `src/pages/index.astro` - Homepage (fetches episodes from api.strollcast.com)
-- `src/pages/how-to.astro` - Technical documentation page
-- `public/<author>-<year>-<paper>/` - Episode folders containing:
-  - `script.md` - Podcast transcript (uses **ERIC:** and **MAYA:** for speaker tags)
-  - `sources.json` - Source references linking script content to paper sections
-- `api/` - Cloudflare Worker for API, transcript generation (Claude), and audio generation (ElevenLabs)
-
-## Source Annotations
-
-Link podcast content to original paper sections using inline attributes:
-
-```markdown
-**ERIC:** SGMV stands for Segmented Gather Matrix-Vector multiplication. {{page: 4, section: 3.1, excerpt: "We design a new CUDA kernel called SGMV..."}}
-
-**MAYA:** It groups requests by their LoRA adapter. {{"page": 5, "section": "3.2", "excerpt": "SGMV parallelizes the feature-weight multiplication..." }}
 ```
-
-The `{{page:...}}` annotations are automatically stripped before TTS generation.
-
-## Python Tools
-
-- `python/generate.py` - ElevenLabs TTS script
-- `python/pixi.toml` - Pixi package manager configuration
-
-## Adding New Episodes
-
-1. Create folder in `public/` named `<author>-<year>-<short-name>`
-2. Add `script.md` with the podcast transcript
-3. Add `metadata.json` with episode metadata:
-   ```json
-   {
-       "id": "short-name-year",
-       "title": "Paper Title",
-       "authors": "Author et al.",
-       "year": 2023,
-       "description": "Brief description of the paper",
-       "paper_url": "https://arxiv.org/abs/...",
-       "topics": ["Topic1", "Topic2", "Topic3"]
-   }
-   ```
-4. Submit job via API to generate audio:
-   ```bash
-   curl -X POST https://api.strollcast.com/jobs \
-       -H "Content-Type: application/json" \
-       -d '{"arxiv_url": "https://arxiv.org/abs/..."}'
-   ```
-   This queues the job which generates transcript (Claude), audio (ElevenLabs), uploads to R2, and updates D1.
+director/
+├── site/                    # Astro SSR website
+│   ├── src/
+│   │   ├── layouts/         # Layout components
+│   │   └── pages/           # Page routes
+│   │       ├── index.astro  # Homepage with episodes
+│   │       ├── login.astro  # OAuth login page
+│   │       └── how-to.astro # Documentation
+│   ├── public/              # Static assets
+│   ├── auth.config.ts       # Auth.js configuration
+│   └── astro.config.mjs     # Astro config with Cloudflare adapter
+├── api/                     # Cloudflare Worker API
+│   ├── src/
+│   │   ├── index.ts         # API routes and queue handler
+│   │   ├── transcript.ts    # Claude-based transcript generation
+│   │   └── audio.ts         # ElevenLabs audio generation
+│   └── migrations/          # D1 database migrations
+└── .github/workflows/       # CI/CD
+    └── deploy.yml           # Deploys both site and worker on push
+```
 
 ## Tech Stack
 
-- Astro (static site generator)
-- GitHub Pages (hosting)
-- Cloudflare Workers (API and podcast generation)
-- Cloudflare Queues (job processing)
-- Cloudflare D1 (database)
-- Cloudflare R2 (audio storage and caching)
-- Anthropic Claude (transcript generation)
-- ElevenLabs (text-to-speech)
-- macOS TTS (local preview)
+- **Frontend:** Astro 5 with SSR, Auth.js (Google + GitHub OAuth)
+- **Hosting:** Cloudflare Pages (site), Cloudflare Workers (API)
+- **Database:** Cloudflare D1
+- **Storage:** Cloudflare R2 (audio files, caching)
+- **Queue:** Cloudflare Queues (job processing)
+- **AI:** Anthropic Claude (transcripts), ElevenLabs (TTS)
 
-## Commands
+## Development
 
 ```bash
-npm run dev      # Start dev server
-npm run build    # Production build
-npm run preview  # Preview production build
+# Site development
+cd site
+npm install
+npm run dev
+
+# API development
+cd api
+npm install
+npx wrangler dev
 ```
+
+## Deployment
+
+Both site and worker deploy automatically on push to main via GitHub Actions.
+
+### Required GitHub Secrets
+
+```
+CLOUDFLARE_API_TOKEN    # API token with Pages and Workers permissions
+CLOUDFLARE_ACCOUNT_ID   # Your Cloudflare account ID
+AUTH_SECRET             # Generate with: openssl rand -base64 32
+```
+
+### Required Cloudflare Pages Environment Variables
+
+Set in Cloudflare Dashboard > Pages > Settings > Environment variables:
+- `AUTH_SECRET` - Same as GitHub secret
+- `AUTH_TRUST_HOST` - Set to `true`
+- `GITHUB_CLIENT_ID` - From GitHub OAuth app
+- `GITHUB_CLIENT_SECRET` - From GitHub OAuth app
+- `GOOGLE_CLIENT_ID` - From Google Cloud Console
+- `GOOGLE_CLIENT_SECRET` - From Google Cloud Console
+
+### Required Worker Secrets
+
+```bash
+cd api
+npx wrangler secret put ANTHROPIC_API_KEY
+npx wrangler secret put ELEVENLABS_API_KEY
+npx wrangler secret put API_KEY
+```
+
+## Adding New Episodes
+
+Submit a job via the authenticated API:
+
+```bash
+curl -X POST https://api.strollcast.com/jobs \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer <API_KEY>" \
+    -d '{"arxiv_url": "https://arxiv.org/abs/..."}'
+```
+
+This queues the job which:
+1. Fetches paper from ar5iv (HTML) or uses abstract fallback
+2. Generates transcript via Claude API
+3. Generates audio via ElevenLabs API
+4. Uploads to R2: `episodes/{id}/{id}.mp3`
+5. Updates D1 database
+
+## Audio URLs
+
+Episodes are served from: `https://released.strollcast.com/episodes/{episode_id}/{episode_id}.mp3`

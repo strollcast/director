@@ -8,6 +8,9 @@
     "preview": "astro preview"
   },
   "dependencies": {
-    "astro": "^4.0.0"
+    "@astrojs/cloudflare": "^12.6.12",
+    "@auth/core": "^0.37.4",
+    "astro": "^5.16.6",
+    "auth-astro": "^4.2.0"
   }
 }
