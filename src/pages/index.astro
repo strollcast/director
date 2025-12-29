@@ -50,18 +50,20 @@ import Layout from '../layouts/Layout.astro';
 
       grid.innerHTML = episodes.map(episode => `
         <article class="episode-card">
+          <h3>${episode.title}</h3>
           <div class="episode-meta">
+            <span class="authors">${episode.authors}</span>
+            <span class="separator">•</span>
             <span class="year">${episode.year}</span>
+            <span class="separator">•</span>
             <span class="duration">${episode.duration}</span>
           </div>
-          <h3>${episode.title}</h3>
-          <p class="authors">${episode.authors}</p>
           <p class="description">${episode.description}</p>
           <div class="topics">
             ${episode.topics.map(topic => `<span class="topic">${topic}</span>`).join('')}
           </div>
           <audio controls preload="metadata" class="audio-player">
-            <source src="${episode.audioUrl}" type="audio/mp4" />
+            <source src="${episode.audioUrl}" type="audio/mpeg" />
             Your browser does not support the audio element.
           </audio>
           <div class="episode-actions">
@@ -122,40 +124,46 @@ import Layout from '../layouts/Layout.astro';
 
   .episode-card {
     background: var(--bg-card);
-    border: 1px solid var(--border);
+    border: 2px solid var(--accent);
     border-radius: 12px;
     padding: 1.5rem;
-    transition: border-color 0.2s, transform 0.2s;
+    transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
   }
 
   .episode-card:hover {
-    border-color: var(--accent);
+    border-color: var(--accent-hover);
     transform: translateY(-2px);
-  }
-
-  .episode-meta {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .year, .duration {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    background: var(--bg-secondary);
-    padding: 0.25rem 0.75rem;
-    border-radius: 100px;
+    box-shadow: 0 4px 20px rgba(139, 92, 246, 0.2);
   }
 
   .episode-card h3 {
     margin: 0 0 0.5rem;
     font-size: 1.25rem;
+    color: var(--text-primary);
   }
 
-  .authors {
+  .episode-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .episode-meta .authors {
     color: var(--accent);
     font-weight: 500;
-    margin-bottom: 0.75rem;
+    margin: 0;
+  }
+
+  .episode-meta .separator {
+    color: var(--text-secondary);
+  }
+
+  .episode-meta .year,
+  .episode-meta .duration {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
   }
 
   .description {
@@ -185,7 +193,7 @@ import Layout from '../layouts/Layout.astro';
 
   .episode-actions {
     display: flex;
-    gap: 1rem;
+    gap: 1.5rem;
     flex-wrap: wrap;
   }
 
