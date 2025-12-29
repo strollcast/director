@@ -1,8 +1,8 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { getSession } from 'auth-astro/server';
+import { getSession } from '../lib/auth';
 
-const session = await getSession(Astro.request);
+const session = await getSession(Astro);
 
 // Redirect to home if already logged in
 if (session) {

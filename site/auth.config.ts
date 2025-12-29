@@ -2,6 +2,7 @@ import GitHub from '@auth/core/providers/github';
 import type { AuthConfig } from '@auth/core';
 
 export default {
+  basePath: '/api/auth',
   providers: [
     GitHub({
       clientId: import.meta.env.GITHUB_CLIENT_ID,

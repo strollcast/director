@@ -1,6 +1,5 @@
 import { defineConfig } from 'astro/config';
 import cloudflare from '@astrojs/cloudflare';
-import auth from 'auth-astro';
 
 export default defineConfig({
   site: 'https://strollcast.com',
@@ -10,5 +9,4 @@ export default defineConfig({
       enabled: true,
     },
   }),
-  integrations: [auth()],
 });
