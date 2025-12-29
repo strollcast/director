@@ -5,8 +5,8 @@
 End-to-end workflow for generating podcast episodes from arXiv papers:
 1. Receive arXiv link via API
 2. Create metadata and add to work queue
-3. Generate transcript using Claude
-4. Generate audio using ElevenLabs
+3. Generate transcript using Claude API
+4. Generate audio using ElevenLabs API
 5. Update D1 database with episode
 
 ## Architecture
@@ -23,8 +23,8 @@ End-to-end workflow for generating podcast episodes from arXiv papers:
 │  GET /jobs/:id                                                      │
 │    → Return job status and details                                  │
 └─────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
+                                   │
+                                   ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                      Cloudflare Queue                                │
 │  "strollcast-jobs"                                                  │
@@ -32,40 +32,29 @@ End-to-end workflow for generating podcast episodes from arXiv papers:
 │    → Automatic retries on failure                                   │
 │    → Dead-letter queue for failed jobs                              │
 └─────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
+                                   │
+                                   ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                      Queue Consumer Worker                           │
+│                      Queue Consumer (Same Worker)                    │
 │  Triggered by queue message                                         │
 │                                                                     │
 │  Stage: "generate_transcript"                                       │
 │    → Update job status: "generating_transcript"                     │
-│    → Call Modal function: generate_transcript(arxiv_id)             │
+│    → Fetch paper from ar5iv (HTML) with abstract fallback           │
+│    → Call Claude API to generate podcast script                     │
 │    → Save script to R2: strollcast-output/active/{job_id}/script.md │
 │    → Send next message: {job_id, stage: "generate_audio"}           │
 │                                                                     │
 │  Stage: "generate_audio"                                            │
 │    → Update job status: "generating_audio"                          │
 │    → Read script from R2                                            │
-│    → Call Modal function: generate_episode(script, metadata)        │
+│    → Parse script into speaker segments                             │
+│    → Generate audio via ElevenLabs API (with R2 caching)            │
+│    → Concatenate MP3 segments                                       │
+│    → Generate VTT transcript                                        │
+│    → Upload to R2: episodes/{episode_id}/                           │
+│    → Update D1 episodes table                                       │
 │    → Update job status: "completed"                                 │
-└─────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Modal Functions                              │
-│                                                                     │
-│  generate_transcript(arxiv_id) → script content                     │
-│    - Fetch paper from ar5iv (HTML) or PDF                           │
-│    - Call Claude to generate podcast script                         │
-│    - Return script markdown                                         │
-│                                                                     │
-│  generate_episode(script, metadata) → {audio_url, vtt_url}          │
-│    - Parse script into segments                                     │
-│    - Generate audio via ElevenLabs                                  │
-│    - Upload to R2: episodes/{episode_id}/                           │
-│    - Generate VTT transcript                                        │
-│    - Update D1 episodes table                                       │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -82,13 +71,15 @@ Client → POST /jobs {"arxiv_url": "https://arxiv.org/abs/2309.06180"}
 
 ```
 Queue Message (stage 1): {job_id: "abc123", stage: "generate_transcript"}
-    → Modal: generate_transcript("2309.06180")
+    → Fetch ar5iv HTML or use abstract fallback
+    → Claude API: generate podcast script
     → R2: strollcast-output/active/abc123/script.md
     → Queue Message (stage 2): {job_id: "abc123", stage: "generate_audio"}
 
 Queue Message (stage 2): {job_id: "abc123", stage: "generate_audio"}
     → R2 Read: script.md
-    → Modal: generate_episode(script, metadata)
+    → ElevenLabs API: generate audio per segment (with caching)
+    → Concatenate MP3 files
     → R2: strollcast-output/episodes/pagedattention-2023/
     → D1: INSERT INTO episodes
     → D1: UPDATE jobs SET status = 'completed'
@@ -101,9 +92,12 @@ strollcast-output/
 ├── active/                          # Work in progress
 │   └── {job_id}/
 │       └── script.md
+├── cache/                           # Audio segment cache
+│   └── segments/
+│       └── {hash}_{preview}.mp3
 └── episodes/                        # Completed episodes
     └── {episode_id}/
-        ├── {episode_id}.m4a
+        ├── {episode_id}.mp3
         └── {episode_id}.vtt
 ```
 
@@ -143,8 +137,8 @@ CREATE INDEX idx_jobs_arxiv_id ON jobs(arxiv_id);
 
 ```
 pending → generating_transcript → generating_audio → completed
-                ↓                        ↓
-              failed                   failed
+               ↓                        ↓
+             failed                   failed
 ```
 
 ## API Endpoints
@@ -225,68 +219,60 @@ List recent jobs.
 }
 ```
 
-## Modal Functions
+## Worker Implementation
 
-### generate_transcript
+### transcript.ts
 
-New function to generate podcast script from arXiv paper.
+Generates podcast script from arXiv paper using Claude API.
 
-```python
-@app.function(timeout=300)  # 5 minutes
-def generate_transcript(arxiv_id: str) -> str:
-    """
-    Generate podcast script from arXiv paper.
+```typescript
+export async function generateTranscript(
+  arxivId: string,
+  anthropicApiKey: string
+): Promise<TranscriptResult> {
+  // Fetch paper content (ar5iv HTML or abstract fallback)
+  const paper = await fetchArxivMetadata(arxivId);
+  const { content, source } = await fetchPaperContent(arxivId, paper.abstract);
 
-    Returns:
-        Markdown script content
-    """
-    # Fetch paper content (ar5iv or PDF)
-    content = fetch_paper_content(arxiv_id)
+  // Generate script via Claude API
+  const script = await generateScriptWithClaude(paper, content, anthropicApiKey);
 
-    # Generate script via Claude
-    script = generate_script_with_claude(content)
-
-    return script
+  return { script, contentSource: source, metadata: paper };
+}
 ```
 
-### generate_episode (existing, enhanced)
+### audio.ts
 
-Updated to accept metadata dict and handle R2 storage.
+Generates podcast audio from script using ElevenLabs API.
 
-```python
-@app.function(timeout=900)
-def generate_episode(script_content: str, metadata: dict) -> dict:
-    """
-    Generate podcast episode from script.
+```typescript
+export async function generateEpisode(
+  scriptContent: string,
+  episodeName: string,
+  elevenLabsApiKey: string,
+  r2Bucket: R2Bucket
+): Promise<GenerateEpisodeResult> {
+  // Parse script into segments
+  const segments = parseScript(scriptContent);
 
-    Args:
-        script_content: Markdown script
-        metadata: {id, title, authors, year, description, paper_url, topics}
+  // Generate audio for each segment (with R2 caching)
+  // Uses continuity parameters for consistent voice
 
-    Returns:
-        {audio_url, vtt_url, duration_seconds}
-    """
-    # ... existing generation logic ...
+  // Concatenate MP3 files
+  // Generate WebVTT transcript
 
-    # Save to R2 episodes/{episode_id}/
-    # Update D1 episodes table
+  return { audioData, vttContent, durationSeconds, ... };
+}
 ```
 
 ## Secrets Required
 
-### Modal Secrets
+### Worker Secrets
 
-| Secret | Keys |
-|--------|------|
-| `elevenlabs` | `ELEVENLABS_API_KEY` |
-| `cloudflare-r2` | `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` |
-| `cloudflare-d1` | `CLOUDFLARE_API_TOKEN` |
-| `anthropic` | `ANTHROPIC_API_KEY` |
-
-### Worker Environment
-
-- `MODAL_TOKEN_ID` - For calling Modal functions
-- `MODAL_TOKEN_SECRET` - For calling Modal functions
+```bash
+npx wrangler secret put ANTHROPIC_API_KEY
+npx wrangler secret put ELEVENLABS_API_KEY
+```
 
 ## Error Handling
 
@@ -295,6 +281,14 @@ def generate_episode(script_content: str, metadata: dict) -> dict:
 3. **ElevenLabs failure:** Retry up to 3 times, then fail
 4. **R2 upload failure:** Retry, idempotent operation
 5. **D1 update failure:** Retry, use UPSERT for idempotency
+
+## Audio Caching
+
+Audio segments are cached in R2 to avoid regenerating identical content:
+
+- **Cache key:** Hash of text + voice ID + model ID + version
+- **Location:** `cache/segments/{hash}_{preview}.mp3`
+- **Benefit:** Subsequent regenerations reuse cached segments
 
 ## Future Enhancements
 

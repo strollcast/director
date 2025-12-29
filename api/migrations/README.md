@@ -83,8 +83,8 @@ Stores podcast generation jobs for the workflow queue.
 The jobs table is used with Cloudflare Queues for end-to-end podcast generation:
 
 1. **POST /jobs** - Create job, fetch arXiv metadata, send to queue
-2. **Queue Stage 1** - Generate transcript via Modal (Claude API)
-3. **Queue Stage 2** - Generate audio via Modal (ElevenLabs)
+2. **Queue Stage 1** - Generate transcript (Claude API in Worker)
+3. **Queue Stage 2** - Generate audio (ElevenLabs API in Worker)
 4. **GET /jobs/:id** - Check job status
 
 ### Required Setup
@@ -95,21 +95,14 @@ The jobs table is used with Cloudflare Queues for end-to-end podcast generation:
    npx wrangler queues create strollcast-jobs-dlq
    ```
 
-2. Create Modal secrets:
-   - `anthropic` with `ANTHROPIC_API_KEY`
-   - `elevenlabs` with `ELEVENLABS_API_KEY`
-   - `cloudflare-r2` with R2 credentials
-   - `cloudflare-d1` with `CLOUDFLARE_API_TOKEN`
-
-3. Deploy Modal app:
+2. Set Worker secrets:
    ```bash
-   cd modal
-   modal deploy -m src.app
+   cd api
+   npx wrangler secret put ANTHROPIC_API_KEY
+   npx wrangler secret put ELEVENLABS_API_KEY
    ```
 
-4. Update wrangler.toml with Modal web endpoint URLs
-
-5. Deploy worker:
+3. Deploy worker:
    ```bash
    cd api
    npx wrangler deploy

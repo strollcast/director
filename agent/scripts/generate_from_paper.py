@@ -430,9 +430,11 @@ def main():
     print("\nNext steps:")
     print("1. Review and edit the script")
     print(f"2. Save to: director/public/{folder}/script.md")
-    print(f"3. Generate audio:")
-    print(f"   cd director/modal")
-    print(f"   modal run -m src.generator --script-path ../public/{folder}/script.md --episode-name {folder}")
+    print(f"3. Generate audio via API:")
+    print(f"   curl -X POST https://api.strollcast.com/jobs \\")
+    print(f"       -H 'Content-Type: application/json' \\")
+    print(f"       -d '{{\"arxiv_url\": \"https://arxiv.org/abs/{extract_arxiv_id(sys.argv[1]) if len(sys.argv) > 1 else 'ARXIV_ID'}\"}}'")
+    print("\n   Or generate full episode (transcript + audio) from scratch via API.")
 
 
 if __name__ == "__main__":

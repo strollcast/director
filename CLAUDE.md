@@ -33,8 +33,7 @@ This is an Astro-based static website that hosts audio podcasts explaining ML re
 - `public/<author>-<year>-<paper>/` - Episode folders containing:
   - `script.md` - Podcast transcript (uses **ERIC:** and **MAYA:** for speaker tags)
   - `sources.json` - Source references linking script content to paper sections
-- `api/` - Cloudflare Worker serving episodes from D1 database
-- `modal/` - Modal serverless functions for podcast generation
+- `api/` - Cloudflare Worker for API, transcript generation (Claude), and audio generation (ElevenLabs)
 
 ## Source Annotations
 
@@ -69,22 +68,25 @@ The `{{page:...}}` annotations are automatically stripped before TTS generation.
        "topics": ["Topic1", "Topic2", "Topic3"]
    }
    ```
-4. Generate audio and update database:
+4. Submit job via API to generate audio:
    ```bash
-   cd modal
-   modal run -m src.generator \
-       --script-path ../public/<folder>/script.md \
-       --metadata-path ../public/<folder>/metadata.json
+   curl -X POST https://api.strollcast.com/jobs \
+       -H "Content-Type: application/json" \
+       -d '{"arxiv_url": "https://arxiv.org/abs/..."}'
    ```
-   This generates audio, uploads to R2, and updates the D1 database.
+   This queues the job which generates transcript (Claude), audio (ElevenLabs), uploads to R2, and updates D1.
 
 ## Tech Stack
 
 - Astro (static site generator)
 - GitHub Pages (hosting)
-- ElevenLabs (production text-to-speech)
-- macOS TTS (preview text-to-speech)
-- ffmpeg (audio processing)
+- Cloudflare Workers (API and podcast generation)
+- Cloudflare Queues (job processing)
+- Cloudflare D1 (database)
+- Cloudflare R2 (audio storage and caching)
+- Anthropic Claude (transcript generation)
+- ElevenLabs (text-to-speech)
+- macOS TTS (local preview)
 
 ## Commands
 
