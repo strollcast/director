@@ -26,10 +26,13 @@ const session = await getSession(Astro);
           <a href="/">Episodes</a>
           <a href="/how-to">How It Works</a>
           {session ? (
-            <div class="user-menu">
-              <span class="user-name">{session.user?.name || session.user?.email}</span>
-              <a href="/api/auth/signout" class="btn-signout">Sign Out</a>
-            </div>
+            <>
+              <a href="/submit" class="btn-submit-nav">Submit Paper</a>
+              <div class="user-menu">
+                <span class="user-name">{session.user?.name || session.user?.email}</span>
+                <a href="/api/auth/signout" class="btn-signout">Sign Out</a>
+              </div>
+            </>
           ) : (
             <a href="/login" class="btn-signin">Sign In</a>
           )}
@@ -140,7 +143,7 @@ const session = await getSession(Astro);
     font-size: 0.875rem;
   }
 
-  .btn-signin {
+  .btn-submit-nav {
     background: var(--accent);
     color: white !important;
     padding: 0.5rem 1rem;
@@ -148,9 +151,23 @@ const session = await getSession(Astro);
     font-weight: 500;
   }
 
-  .btn-signin:hover {
+  .btn-submit-nav:hover {
     background: var(--accent-hover);
     color: white !important;
+  }
+
+  .btn-signin {
+    background: var(--bg-card);
+    color: var(--text-primary) !important;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+  }
+
+  .btn-signin:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary) !important;
   }
 
   .btn-signout {

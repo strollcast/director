@@ -1,0 +1,301 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getSession } from '../lib/auth';
+
+const session = await getSession(Astro);
+
+// Redirect to login if not authenticated
+if (!session) {
+  return Astro.redirect('/login?redirect=/submit');
+}
+---
+
+<Layout title="Submit Paper">
+  <div class="submit-container">
+    <div class="submit-card">
+      <h1>Submit a Paper</h1>
+      <p class="subtitle">Enter an arXiv URL to generate a podcast episode</p>
+
+      <form id="submit-form" class="submit-form">
+        <div class="form-group">
+          <label for="arxiv-url">arXiv URL</label>
+          <input
+            type="url"
+            id="arxiv-url"
+            name="arxiv_url"
+            placeholder="https://arxiv.org/abs/2309.06180"
+            required
+            pattern="https?://arxiv.org/(abs|pdf)/[0-9]+\.[0-9]+.*"
+          />
+          <p class="hint">Supports arxiv.org/abs/ and arxiv.org/pdf/ URLs</p>
+        </div>
+
+        <button type="submit" class="btn btn-submit" id="submit-btn">
+          <span class="btn-text">Generate Podcast</span>
+          <span class="btn-loading" style="display: none;">Processing...</span>
+        </button>
+      </form>
+
+      <div id="result" class="result" style="display: none;"></div>
+      <div id="error" class="error" style="display: none;"></div>
+    </div>
+
+    <div class="info-card">
+      <h2>How it works</h2>
+      <ol>
+        <li>Submit an arXiv paper URL</li>
+        <li>Our AI reads the paper and generates a conversational script</li>
+        <li>Two AI hosts (Eric & Maya) discuss the key findings</li>
+        <li>The podcast appears on the homepage when ready (usually 5-10 minutes)</li>
+      </ol>
+      <p class="note">Only open-access arXiv papers are supported. Please ensure you have the right to create derivative works from the paper.</p>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  const form = document.getElementById('submit-form') as HTMLFormElement;
+  const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+  const btnText = submitBtn.querySelector('.btn-text') as HTMLElement;
+  const btnLoading = submitBtn.querySelector('.btn-loading') as HTMLElement;
+  const resultDiv = document.getElementById('result') as HTMLElement;
+  const errorDiv = document.getElementById('error') as HTMLElement;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    // Reset state
+    resultDiv.style.display = 'none';
+    errorDiv.style.display = 'none';
+    submitBtn.disabled = true;
+    btnText.style.display = 'none';
+    btnLoading.style.display = 'inline';
+
+    const formData = new FormData(form);
+    const arxivUrl = formData.get('arxiv_url') as string;
+
+    try {
+      const response = await fetch('/api/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ arxiv_url: arxivUrl }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to submit job');
+      }
+
+      // Show success message
+      if (data.episode) {
+        resultDiv.innerHTML = `
+          <h3>Episode Already Exists!</h3>
+          <p>A podcast for this paper is already available.</p>
+          <a href="/" class="btn btn-secondary">View Episodes</a>
+        `;
+      } else if (data.message?.includes('already in progress')) {
+        resultDiv.innerHTML = `
+          <h3>Job Already Queued</h3>
+          <p>This paper is already being processed. Check back soon!</p>
+          <p class="job-status">Status: ${data.job?.status || 'processing'}</p>
+        `;
+      } else {
+        resultDiv.innerHTML = `
+          <h3>Job Submitted!</h3>
+          <p><strong>${data.title || 'Paper'}</strong></p>
+          <p>Your podcast is being generated. This typically takes 5-10 minutes.</p>
+          <p class="job-status">Job ID: ${data.jobId}</p>
+          <a href="/" class="btn btn-secondary">View Episodes</a>
+        `;
+      }
+      resultDiv.style.display = 'block';
+      form.reset();
+
+    } catch (err) {
+      errorDiv.textContent = err instanceof Error ? err.message : 'An error occurred';
+      errorDiv.style.display = 'block';
+    } finally {
+      submitBtn.disabled = false;
+      btnText.style.display = 'inline';
+      btnLoading.style.display = 'none';
+    }
+  });
+</script>
+
+<style>
+  .submit-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  @media (max-width: 768px) {
+    .submit-container {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .submit-card {
+    background: var(--bg-card);
+    border: 2px solid var(--accent);
+    border-radius: 16px;
+    padding: 2rem;
+  }
+
+  .submit-card h1 {
+    margin-bottom: 0.5rem;
+  }
+
+  .subtitle {
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+  }
+
+  .submit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .form-group label {
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .form-group input {
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 1rem;
+  }
+
+  .form-group input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .form-group input::placeholder {
+    color: var(--text-secondary);
+  }
+
+  .hint {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .btn-submit {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 0.875rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .btn-submit:hover:not(:disabled) {
+    background: var(--accent-hover);
+  }
+
+  .btn-submit:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  .btn-secondary {
+    display: inline-block;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    margin-top: 1rem;
+  }
+
+  .btn-secondary:hover {
+    background: var(--bg-card);
+    color: var(--text-primary);
+  }
+
+  .result {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: rgba(139, 92, 246, 0.1);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+  }
+
+  .result h3 {
+    color: var(--accent);
+    margin: 0 0 0.5rem 0;
+  }
+
+  .result p {
+    margin: 0.5rem 0;
+  }
+
+  .job-status {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-family: monospace;
+  }
+
+  .error {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid #ef4444;
+    border-radius: 8px;
+    color: #ef4444;
+  }
+
+  .info-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    height: fit-content;
+  }
+
+  .info-card h2 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+  }
+
+  .info-card ol {
+    padding-left: 1.25rem;
+    margin: 0 0 1.5rem 0;
+  }
+
+  .info-card li {
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+  }
+
+  .note {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    padding: 1rem;
+    background: var(--bg-card);
+    border-radius: 8px;
+    margin: 0;
+  }
+</style>
