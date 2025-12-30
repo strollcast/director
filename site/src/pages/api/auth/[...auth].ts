@@ -19,9 +19,17 @@ export const ALL: APIRoute = async ({ request, locals }) => {
       }),
     ],
     callbacks: {
+      async jwt({ token, profile }) {
+        // Store GitHub username from profile on initial sign-in
+        if (profile) {
+          token.username = (profile as any).login;
+        }
+        return token;
+      },
       async session({ session, token }) {
         if (session.user && token.sub) {
           session.user.id = token.sub;
+          (session.user as any).username = token.username;
         }
         return session;
       },
