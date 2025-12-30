@@ -30,6 +30,8 @@ if (username !== ADMIN_GITHUB_USERNAME) {
 </Layout>
 
 <script>
+  import { formatRelativeDate, formatBytes, truncateTitle } from '../lib/format';
+
   interface EpisodeWithMeta {
     id: string;
     title: string;
@@ -43,31 +45,6 @@ if (username !== ADMIN_GITHUB_USERNAME) {
     audioUpdated: string | null;
     vttSize: number | null;
     vttUpdated: string | null;
-  }
-
-  function formatBytes(bytes: number | null): string {
-    if (bytes === null || bytes === undefined) return '-';
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-  }
-
-  function formatDate(dateString: string | null): string {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  }
-
-  function truncateTitle(title: string, maxLen: number = 60): string {
-    if (title.length <= maxLen) return title;
-    return title.slice(0, 50) + '...' + title.slice(-10);
   }
 
   async function loadEpisodes() {
@@ -117,19 +94,19 @@ if (username !== ADMIN_GITHUB_USERNAME) {
                 <td class="col-file">
                   <div class="file-cell">
                     <span class="file-size">${formatBytes(ep.scriptSize)}</span>
-                    <span class="file-date">${formatDate(ep.scriptUpdated)}</span>
+                    <span class="file-date">${formatRelativeDate(ep.scriptUpdated)}</span>
                   </div>
                 </td>
                 <td class="col-file">
                   <div class="file-cell">
                     <span class="file-size">${formatBytes(ep.audioSize)}</span>
-                    <span class="file-date">${formatDate(ep.audioUpdated)}</span>
+                    <span class="file-date">${formatRelativeDate(ep.audioUpdated)}</span>
                   </div>
                 </td>
                 <td class="col-file">
                   <div class="file-cell">
                     <span class="file-size">${formatBytes(ep.vttSize)}</span>
-                    <span class="file-date">${formatDate(ep.vttUpdated)}</span>
+                    <span class="file-date">${formatRelativeDate(ep.vttUpdated)}</span>
                   </div>
                 </td>
                 <td class="col-actions">

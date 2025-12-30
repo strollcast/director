@@ -5,12 +5,17 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^12.6.12",
     "@auth/core": "^0.37.4",
     "astro": "^5.16.6",
     "auth-astro": "^4.2.0"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.8"
   }
 }
