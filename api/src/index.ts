@@ -767,7 +767,30 @@ async function handleGenerateAudio(jobId: string, env: Env): Promise<void> {
     .first<Episode>();
 
   if (existingEpisode) {
-    console.log(`Episode ${episodeId} already exists, marking job as completed`);
+    console.log(`Episode ${episodeId} already exists in database, marking job as completed`);
+    // Mark job as completed
+    await env.DB.prepare(
+      `UPDATE jobs
+       SET status = 'completed',
+           episode_id = ?,
+           completed_at = datetime('now'),
+           updated_at = datetime('now')
+       WHERE id = ?`
+    )
+      .bind(episodeId, jobId)
+      .run();
+    return;
+  }
+
+  // Check if audio file already exists in R2 (idempotency)
+  const mp3Path = `episodes/${episodeId}/${episodeId}.mp3`;
+  const m4aPath = `episodes/${episodeId}/${episodeId}.m4a`;
+  const existingMp3 = await env.R2.head(mp3Path);
+  const existingM4a = await env.R2.head(m4aPath);
+
+  if (existingMp3 || existingM4a) {
+    const audioPath = existingMp3 ? mp3Path : m4aPath;
+    console.log(`Audio file already exists at ${audioPath}, skipping generation`);
     // Mark job as completed
     await env.DB.prepare(
       `UPDATE jobs
