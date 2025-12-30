@@ -20,10 +20,15 @@ max_batch_timeout = 30
 max_retries = 3
 dead_letter_queue = "strollcast-jobs-dlq"
 
-# R2 bucket for intermediate files
+# R2 bucket for episode output (audio, transcripts, scripts)
 [[r2_buckets]]
 binding = "R2"
 bucket_name = "strollcast-output"
+
+# R2 bucket for segment cache
+[[r2_buckets]]
+binding = "R2_CACHE"
+bucket_name = "strollcast-cache"
 
 [observability]
 [observability.logs]

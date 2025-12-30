@@ -4,7 +4,8 @@ import { generateEpisode, uploadEpisode, uploadTranscript } from "./audio";
 export interface Env {
   DB: D1Database;
   JOBS_QUEUE: Queue;
-  R2: R2Bucket;
+  R2: R2Bucket;        // strollcast-output: episodes, scripts, transcripts
+  R2_CACHE: R2Bucket;  // strollcast-cache: segment cache
   // API keys
   ANTHROPIC_API_KEY: string;
   ELEVENLABS_API_KEY: string;
@@ -521,31 +522,11 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
       )
       .run();
 
-    // For regeneration, we need to get the existing script from R2
-    // Look for the script in the episode folder or create from transcript
-    // For now, queue directly to audio generation stage
-    // First copy existing script to active folder if we can find it
+    // Check if script exists in episodes folder
+    const scriptKey = `episodes/${episodeId}/script.md`;
+    const existingScript = await env.R2.head(scriptKey);
 
-    // Try to find existing script in R2
-    const possibleScriptPaths = [
-      `episodes/${episodeId}/script.md`,
-      `scripts/${episodeId}.md`,
-    ];
-
-    let scriptContent: string | null = null;
-    for (const scriptPath of possibleScriptPaths) {
-      try {
-        const scriptObject = await env.R2.get(scriptPath);
-        if (scriptObject) {
-          scriptContent = await scriptObject.text();
-          break;
-        }
-      } catch {
-        // Continue to next path
-      }
-    }
-
-    if (!scriptContent) {
+    if (!existingScript) {
       // No existing script found - need to regenerate from transcript
       await env.DB.prepare(
         `UPDATE jobs SET status = 'failed', error_message = 'No script found for episode. Full regeneration required.', updated_at = datetime('now') WHERE id = ?`
@@ -559,12 +540,8 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
       );
     }
 
-    // Save script to active folder
-    const activeScriptKey = `active/${jobId}/script.md`;
-    await env.R2.put(activeScriptKey, scriptContent);
-
     // Update job with script URL
-    const scriptUrl = `https://pub-strollcast.r2.dev/${activeScriptKey}`;
+    const scriptUrl = `https://released.strollcast.com/${scriptKey}`;
     await env.DB.prepare(
       `UPDATE jobs SET script_url = ?, updated_at = datetime('now') WHERE id = ?`
     )
@@ -638,11 +615,20 @@ async function handleGenerateTranscript(jobId: string, env: Env): Promise<void> 
     throw new Error(`Job ${jobId} not found`);
   }
 
+  // Generate episode ID from title (same logic used in audio generation)
+  const episodeId = generateEpisodeId(job.title || "untitled", job.year || 2024);
+  const scriptKey = `episodes/${episodeId}/script.md`;
+
   // Check if script already exists in R2 (idempotency)
-  const scriptKey = `active/${jobId}/script.md`;
   const existingScript = await env.R2.head(scriptKey);
   if (existingScript) {
-    console.log(`Script already exists for job ${jobId}, skipping transcript generation`);
+    console.log(`Script already exists for episode ${episodeId}, skipping transcript generation`);
+    // Update job with episode_id if not set
+    await env.DB.prepare(
+      `UPDATE jobs SET episode_id = ?, updated_at = datetime('now') WHERE id = ? AND episode_id IS NULL`
+    )
+      .bind(episodeId, jobId)
+      .run();
     // Proceed directly to audio stage
     await env.JOBS_QUEUE.send({
       job_id: jobId,
@@ -654,9 +640,9 @@ async function handleGenerateTranscript(jobId: string, env: Env): Promise<void> 
 
   // Update status
   await env.DB.prepare(
-    `UPDATE jobs SET status = 'generating_transcript', updated_at = datetime('now') WHERE id = ?`
+    `UPDATE jobs SET status = 'generating_transcript', episode_id = ?, updated_at = datetime('now') WHERE id = ?`
   )
-    .bind(jobId)
+    .bind(episodeId, jobId)
     .run();
 
   // Generate transcript directly in the Worker
@@ -665,11 +651,11 @@ async function handleGenerateTranscript(jobId: string, env: Env): Promise<void> 
 
   console.log(`Transcript generated for ${job.arxiv_id}, source: ${result.contentSource}`);
 
-  // Save script to R2
+  // Save script to R2 in episodes folder
   await env.R2.put(scriptKey, scriptContent);
 
   // Update job with script URL
-  const scriptUrl = `https://pub-strollcast.r2.dev/${scriptKey}`;
+  const scriptUrl = `https://released.strollcast.com/${scriptKey}`;
   await env.DB.prepare(
     `UPDATE jobs SET script_url = ?, updated_at = datetime('now') WHERE id = ?`
   )
@@ -706,7 +692,7 @@ async function handleGenerateAudio(jobId: string, env: Env): Promise<void> {
 
   if (existingEpisode) {
     console.log(`Episode ${episodeId} already exists, marking job as completed`);
-    // Mark job as completed and clean up
+    // Mark job as completed
     await env.DB.prepare(
       `UPDATE jobs
        SET status = 'completed',
@@ -717,10 +703,6 @@ async function handleGenerateAudio(jobId: string, env: Env): Promise<void> {
     )
       .bind(episodeId, jobId)
       .run();
-
-    // Clean up active folder if exists
-    const scriptKey = `active/${jobId}/script.md`;
-    await env.R2.delete(scriptKey);
     return;
   }
 
@@ -731,8 +713,8 @@ async function handleGenerateAudio(jobId: string, env: Env): Promise<void> {
     .bind(jobId)
     .run();
 
-  // Read script from R2
-  const scriptKey = `active/${jobId}/script.md`;
+  // Read script from R2 (stored in episodes folder)
+  const scriptKey = `episodes/${episodeId}/script.md`;
   const scriptObject = await env.R2.get(scriptKey);
   if (!scriptObject) {
     throw new Error(`Script not found at ${scriptKey}`);
@@ -753,7 +735,8 @@ async function handleGenerateAudio(jobId: string, env: Env): Promise<void> {
       elevenlabs: env.ELEVENLABS_API_KEY,
       inworld: env.INWORLD_API_KEY,
     },
-    env.R2
+    env.R2,
+    env.R2_CACHE
   );
 
   console.log(
@@ -812,9 +795,6 @@ async function handleGenerateAudio(jobId: string, env: Env): Promise<void> {
   )
     .bind(episodeId, jobId)
     .run();
-
-  // Clean up active folder
-  await env.R2.delete(scriptKey);
 
   console.log(`Episode ${episodeId} completed: ${audioUrl}`);
 }

@@ -325,11 +325,11 @@ function generateWebVtt(segments: TimingInfo[]): string {
  * Check R2 cache for a segment.
  */
 async function getCachedSegment(
-  r2: R2Bucket,
+  r2Cache: R2Bucket,
   cacheKey: string
 ): Promise<Uint8Array | null> {
   try {
-    const object = await r2.get(`cache/segments/${cacheKey}.mp3`);
+    const object = await r2Cache.get(`segments/${cacheKey}.mp3`);
     if (object) {
       const arrayBuffer = await object.arrayBuffer();
       return new Uint8Array(arrayBuffer);
@@ -344,12 +344,12 @@ async function getCachedSegment(
  * Save segment to R2 cache.
  */
 async function saveCachedSegment(
-  r2: R2Bucket,
+  r2Cache: R2Bucket,
   cacheKey: string,
   audio: Uint8Array
 ): Promise<void> {
   try {
-    await r2.put(`cache/segments/${cacheKey}.mp3`, audio, {
+    await r2Cache.put(`segments/${cacheKey}.mp3`, audio, {
       httpMetadata: { contentType: "audio/mpeg" },
     });
   } catch (error) {
@@ -365,6 +365,7 @@ export async function generateEpisode(
   episodeName: string,
   apiKeys: { elevenlabs?: string; inworld?: string },
   r2Bucket: R2Bucket,
+  r2Cache: R2Bucket,
   provider: TTSProvider = "inworld" // Default to Inworld for new podcasts
 ): Promise<GenerateEpisodeResult> {
   // Validate API key for provider
@@ -415,7 +416,7 @@ export async function generateEpisode(
       const nextSegment = speechIndex < speechSegments.length - 1 ? speechSegments[speechIndex + 1] : null;
 
       // Check cache
-      let audio = await getCachedSegment(r2Bucket, cacheKey);
+      let audio = await getCachedSegment(r2Cache, cacheKey);
       let duration: number;
 
       if (audio) {
@@ -451,7 +452,7 @@ export async function generateEpisode(
         apiCalls++;
 
         // Cache the segment
-        await saveCachedSegment(r2Bucket, cacheKey, audio);
+        await saveCachedSegment(r2Cache, cacheKey, audio);
       }
 
       audioChunks.push(audio);
