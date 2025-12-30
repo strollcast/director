@@ -412,14 +412,19 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
       );
     }
 
+    // Join with jobs to get submitted_by
     const { results } = await env.DB.prepare(
-      `SELECT * FROM episodes ORDER BY year DESC, created_at DESC`
-    ).all<Episode>();
+      `SELECT e.*, j.submitted_by
+       FROM episodes e
+       LEFT JOIN jobs j ON j.episode_id = e.id
+       ORDER BY e.year DESC, e.created_at DESC`
+    ).all<Episode & { submitted_by: string | null }>();
 
     // Get file metadata from R2 for each episode
     const episodesWithMeta = await Promise.all(
       results.map(async (episode) => {
         const baseResponse = toApiResponse(episode);
+        const submittedBy = episode.submitted_by;
 
         // Build R2 paths
         const audioPath = episode.audio_url.replace("https://released.strollcast.com/", "");
@@ -476,6 +481,7 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
           audioUpdated,
           vttSize,
           vttUpdated,
+          submittedBy,
         };
       })
     );

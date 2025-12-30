@@ -58,9 +58,9 @@ export function formatBytes(bytes: number | null | undefined): string {
 
 /**
  * Truncates a title with ellipsis in the middle.
- * Shows first 50 chars + "..." + last 10 chars if over maxLen.
+ * Shows first 40 chars + "..." + last 5 chars if over maxLen.
  */
-export function truncateTitle(title: string, maxLen: number = 60): string {
+export function truncateTitle(title: string, maxLen: number = 45): string {
   if (title.length <= maxLen) return title;
-  return title.slice(0, 50) + '...' + title.slice(-10);
+  return title.slice(0, 40) + '...' + title.slice(-5);
 }

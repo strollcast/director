@@ -130,26 +130,27 @@ describe('truncateTitle', () => {
   });
 
   it('returns titles at exactly maxLen unchanged', () => {
-    const title = 'a'.repeat(60);
+    const title = 'a'.repeat(45);
     expect(truncateTitle(title)).toBe(title);
   });
 
   it('truncates long titles with ellipsis', () => {
-    const title = 'a'.repeat(70);
+    const title = 'a'.repeat(50);
     const result = truncateTitle(title);
-    expect(result).toBe('a'.repeat(50) + '...' + 'a'.repeat(10));
-    expect(result.length).toBe(63);
+    // 50 chars > 45, so: first 40 + "..." + last 5 = 48 chars
+    expect(result).toBe('a'.repeat(40) + '...' + 'a'.repeat(5));
+    expect(result.length).toBe(48);
   });
 
   it('respects custom maxLen', () => {
     const title = 'a'.repeat(50);
-    expect(truncateTitle(title, 40)).toBe('a'.repeat(50).slice(0, 50) + '...' + 'a'.repeat(50).slice(-10));
+    expect(truncateTitle(title, 30)).toBe('a'.repeat(40) + '...' + 'a'.repeat(5));
   });
 
   it('handles real-world title', () => {
     const title = 'Efficient Memory Management for Large Language Model Serving with PagedAttention';
     const result = truncateTitle(title);
-    // 80 chars > 60, so: first 50 + "..." + last 10 = 63 chars
-    expect(result).toBe('Efficient Memory Management for Large Language Mod...dAttention');
+    // 80 chars > 45, so: first 40 + "..." + last 5 = 48 chars
+    expect(result).toBe('Efficient Memory Management for Large La...ntion');
   });
 });
