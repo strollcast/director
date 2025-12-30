@@ -8,6 +8,7 @@ export interface Env {
   // API keys
   ANTHROPIC_API_KEY: string;
   ELEVENLABS_API_KEY: string;
+  INWORLD_API_KEY: string;
   API_KEY: string; // For authenticating POST /jobs requests
 }
 
@@ -551,12 +552,15 @@ async function handleGenerateAudio(jobId: string, env: Env): Promise<void> {
   const lastName = firstAuthor.split(" ").pop()?.toLowerCase() || "unknown";
   const episodeName = `${lastName}-${job.year || 2024}-${episodeId.split("-")[0]}`;
 
-  // Generate audio directly in the Worker
+  // Generate audio directly in the Worker (defaults to Inworld TTS)
   console.log(`Generating audio for ${episodeName}...`);
   const result = await generateEpisode(
     scriptContent,
     episodeName,
-    env.ELEVENLABS_API_KEY,
+    {
+      elevenlabs: env.ELEVENLABS_API_KEY,
+      inworld: env.INWORLD_API_KEY,
+    },
     env.R2
   );
 

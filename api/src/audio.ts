@@ -1,17 +1,29 @@
 /**
  * Audio generation for Strollcast.
  *
- * Generates podcast audio from scripts using ElevenLabs API.
+ * Generates podcast audio from scripts using ElevenLabs or Inworld TTS.
  * Runs directly in Cloudflare Worker without Modal/ffmpeg dependency.
  */
 
-// Voice configuration
-const VOICES: Record<string, string> = {
+// TTS Provider types
+export type TTSProvider = "elevenlabs" | "inworld";
+
+// ElevenLabs voice configuration
+const ELEVENLABS_VOICES: Record<string, string> = {
   ERIC: "gP8LZQ3GGokV0MP5JYjg", // ElevenLabs Eric voice
   MAYA: "21m00Tcm4TlvDq8ikWAM", // ElevenLabs Rachel voice
 };
 
-const MODEL_ID = "eleven_turbo_v2_5";
+const ELEVENLABS_MODEL_ID = "eleven_turbo_v2_5";
+
+// Inworld voice configuration (via AIML API)
+const INWORLD_VOICES: Record<string, string> = {
+  ERIC: "Dennis",
+  MAYA: "Sarah",
+};
+
+const INWORLD_API_URL = "https://api.aimlapi.com/v1/tts";
+const INWORLD_MODEL = "inworld/tts-1";
 
 interface Segment {
   speaker: string;
@@ -31,6 +43,14 @@ interface ElevenLabsResponse {
     characters: string[];
     character_start_times_seconds: number[];
     character_end_times_seconds: number[];
+  };
+}
+
+interface InworldResponse {
+  audio: {
+    url: string;
+    duration: number;
+    channels: number;
   };
 }
 
@@ -80,35 +100,63 @@ export function parseScript(scriptContent: string): Segment[] {
 
 /**
  * Compute cache key for a segment.
+ * ElevenLabs uses the original format (version 2) for backwards compatibility.
+ * Inworld uses version 3 with provider in the key.
  */
-function computeCacheKey(text: string, voiceId: string): string {
+function computeCacheKey(text: string, voiceId: string, provider: TTSProvider): string {
+  const modelId = provider === "elevenlabs" ? ELEVENLABS_MODEL_ID : INWORLD_MODEL;
+
+  // ElevenLabs: maintain backwards compatibility with existing cache
+  if (provider === "elevenlabs") {
+    const cacheData = JSON.stringify(
+      {
+        text,
+        voice_id: voiceId,
+        model_id: modelId,
+        version: "2",
+      },
+      Object.keys({
+        text,
+        voice_id: voiceId,
+        model_id: modelId,
+        version: "2",
+      }).sort()
+    );
+
+    let hash = 0;
+    for (let i = 0; i < cacheData.length; i++) {
+      const char = cacheData.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash).toString(16).padStart(8, "0") + "_" + text.slice(0, 20).replace(/[^a-zA-Z0-9]/g, "");
+  }
+
+  // Inworld: new format with provider
   const cacheData = JSON.stringify(
     {
       text,
       voice_id: voiceId,
-      model_id: MODEL_ID,
-      version: "2", // Increment when changing audio settings
+      model_id: modelId,
+      provider,
+      version: "1",
     },
     Object.keys({
       text,
       voice_id: voiceId,
-      model_id: MODEL_ID,
-      version: "2",
+      model_id: modelId,
+      provider,
+      version: "1",
     }).sort()
   );
 
-  // Use SubtleCrypto for hashing
-  const encoder = new TextEncoder();
-  const data = encoder.encode(cacheData);
-
-  // Simple hash for cache key (not cryptographic, just for caching)
   let hash = 0;
   for (let i = 0; i < cacheData.length; i++) {
     const char = cacheData.charCodeAt(i);
     hash = (hash << 5) - hash + char;
     hash = hash & hash;
   }
-  return Math.abs(hash).toString(16).padStart(8, "0") + "_" + text.slice(0, 20).replace(/[^a-zA-Z0-9]/g, "");
+  return Math.abs(hash).toString(16).padStart(8, "0") + "_" + provider + "_" + text.slice(0, 20).replace(/[^a-zA-Z0-9]/g, "");
 }
 
 /**
@@ -118,7 +166,7 @@ function computeCacheKey(text: string, voiceId: string): string {
  * Uses continuity parameters (previous_text, next_text) to maintain
  * consistent voice characteristics across segments.
  */
-async function generateSegmentAudio(
+async function generateSegmentAudioElevenLabs(
   text: string,
   speaker: string,
   apiKey: string,
@@ -128,11 +176,11 @@ async function generateSegmentAudio(
     seed?: number;
   }
 ): Promise<{ audio: Uint8Array; duration: number }> {
-  const voiceId = VOICES[speaker];
+  const voiceId = ELEVENLABS_VOICES[speaker];
 
   const requestBody: Record<string, unknown> = {
     text,
-    model_id: MODEL_ID,
+    model_id: ELEVENLABS_MODEL_ID,
     output_format: "mp3_44100_128", // High quality MP3
     voice_settings: {
       stability: 0.5,
@@ -185,6 +233,50 @@ async function generateSegmentAudio(
   const duration = endTimes.length > 0 ? endTimes[endTimes.length - 1] : 0;
 
   return { audio: bytes, duration };
+}
+
+/**
+ * Generate audio for a single segment using Inworld TTS (via AIML API).
+ * Returns audio bytes and duration.
+ */
+async function generateSegmentAudioInworld(
+  text: string,
+  speaker: string,
+  apiKey: string
+): Promise<{ audio: Uint8Array; duration: number }> {
+  const voice = INWORLD_VOICES[speaker];
+
+  const response = await fetch(INWORLD_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: INWORLD_MODEL,
+      text,
+      voice,
+      format: "mp3",
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Inworld API error: ${response.status} ${errorText}`);
+  }
+
+  const data = (await response.json()) as InworldResponse;
+
+  // Fetch the audio from the URL
+  const audioResponse = await fetch(data.audio.url);
+  if (!audioResponse.ok) {
+    throw new Error(`Failed to fetch Inworld audio: ${audioResponse.status}`);
+  }
+
+  const audioBuffer = await audioResponse.arrayBuffer();
+  const bytes = new Uint8Array(audioBuffer);
+
+  return { audio: bytes, duration: data.audio.duration };
 }
 
 /**
@@ -271,9 +363,16 @@ async function saveCachedSegment(
 export async function generateEpisode(
   scriptContent: string,
   episodeName: string,
-  elevenLabsApiKey: string,
-  r2Bucket: R2Bucket
+  apiKeys: { elevenlabs?: string; inworld?: string },
+  r2Bucket: R2Bucket,
+  provider: TTSProvider = "inworld" // Default to Inworld for new podcasts
 ): Promise<GenerateEpisodeResult> {
+  // Validate API key for provider
+  const apiKey = provider === "elevenlabs" ? apiKeys.elevenlabs : apiKeys.inworld;
+  if (!apiKey) {
+    throw new Error(`API key not provided for ${provider}`);
+  }
+
   // Parse script
   const segments = parseScript(scriptContent);
   if (segments.length === 0) {
@@ -285,11 +384,15 @@ export async function generateEpisode(
     (s): s is Segment & { text: string } => s.speaker !== "PAUSE" && s.text !== null
   );
 
-  // Use consistent seeds per speaker for deterministic output
+  // Use consistent seeds per speaker for deterministic output (ElevenLabs only)
   const speakerSeeds: Record<string, number> = {
     ERIC: 12345,
     MAYA: 67890,
   };
+
+  // Get voice ID based on provider
+  const getVoiceId = (speaker: string) =>
+    provider === "elevenlabs" ? ELEVENLABS_VOICES[speaker] : INWORLD_VOICES[speaker];
 
   // Generate all segments
   const audioChunks: Uint8Array[] = [];
@@ -304,8 +407,8 @@ export async function generateEpisode(
       // Add 800ms pause (just track time, no audio needed for silence in MP3 concat)
       currentTime += 0.8;
     } else if (segment.text) {
-      const voiceId = VOICES[segment.speaker];
-      const cacheKey = computeCacheKey(segment.text, voiceId);
+      const voiceId = getVoiceId(segment.speaker);
+      const cacheKey = computeCacheKey(segment.text, voiceId, provider);
 
       // Find previous and next segments for continuity (same speaker preferred)
       const prevSegment = speechIndex > 0 ? speechSegments[speechIndex - 1] : null;
@@ -321,17 +424,28 @@ export async function generateEpisode(
         // More accurate would be to store duration in cache metadata
         duration = audio.length / 2000; // Rough estimate
       } else {
-        // Generate via ElevenLabs with continuity parameters
-        const result = await generateSegmentAudio(
-          segment.text,
-          segment.speaker,
-          elevenLabsApiKey,
-          {
-            previousText: prevSegment?.text,
-            nextText: nextSegment?.text,
-            seed: speakerSeeds[segment.speaker],
-          }
-        );
+        // Generate via selected provider
+        let result: { audio: Uint8Array; duration: number };
+
+        if (provider === "elevenlabs") {
+          result = await generateSegmentAudioElevenLabs(
+            segment.text,
+            segment.speaker,
+            apiKey,
+            {
+              previousText: prevSegment?.text,
+              nextText: nextSegment?.text,
+              seed: speakerSeeds[segment.speaker],
+            }
+          );
+        } else {
+          result = await generateSegmentAudioInworld(
+            segment.text,
+            segment.speaker,
+            apiKey
+          );
+        }
+
         audio = result.audio;
         duration = result.duration;
         apiCalls++;
