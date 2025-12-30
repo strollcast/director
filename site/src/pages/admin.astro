@@ -37,10 +37,12 @@ if (username !== ADMIN_GITHUB_USERNAME) {
     year: number;
     audioUrl: string;
     transcriptUrl: string | null;
+    scriptSize: number | null;
+    scriptUpdated: string | null;
     audioSize: number | null;
     audioUpdated: string | null;
-    transcriptSize: number | null;
-    transcriptUpdated: string | null;
+    vttSize: number | null;
+    vttUpdated: string | null;
   }
 
   function formatBytes(bytes: number | null): string {
@@ -96,8 +98,9 @@ if (username !== ADMIN_GITHUB_USERNAME) {
             <tr>
               <th class="col-title">Title</th>
               <th class="col-year">Year</th>
-              <th class="col-audio">Audio</th>
-              <th class="col-transcript">Transcript</th>
+              <th class="col-file">Script</th>
+              <th class="col-file">Audio</th>
+              <th class="col-file">VTT</th>
               <th class="col-actions">Actions</th>
             </tr>
           </thead>
@@ -111,16 +114,22 @@ if (username !== ADMIN_GITHUB_USERNAME) {
                   </div>
                 </td>
                 <td class="col-year">${ep.year}</td>
-                <td class="col-audio">
+                <td class="col-file">
+                  <div class="file-cell">
+                    <span class="file-size">${formatBytes(ep.scriptSize)}</span>
+                    <span class="file-date">${formatDate(ep.scriptUpdated)}</span>
+                  </div>
+                </td>
+                <td class="col-file">
                   <div class="file-cell">
                     <span class="file-size">${formatBytes(ep.audioSize)}</span>
                     <span class="file-date">${formatDate(ep.audioUpdated)}</span>
                   </div>
                 </td>
-                <td class="col-transcript">
+                <td class="col-file">
                   <div class="file-cell">
-                    <span class="file-size">${formatBytes(ep.transcriptSize)}</span>
-                    <span class="file-date">${formatDate(ep.transcriptUpdated)}</span>
+                    <span class="file-size">${formatBytes(ep.vttSize)}</span>
+                    <span class="file-date">${formatDate(ep.vttUpdated)}</span>
                   </div>
                 </td>
                 <td class="col-actions">
@@ -311,9 +320,8 @@ if (username !== ADMIN_GITHUB_USERNAME) {
     text-align: center;
   }
 
-  .col-audio,
-  .col-transcript {
-    width: 120px;
+  .col-file {
+    width: 100px;
   }
 
   .col-actions {

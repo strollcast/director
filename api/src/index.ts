@@ -421,16 +421,30 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
       results.map(async (episode) => {
         const baseResponse = toApiResponse(episode);
 
-        // Parse episode ID from audio URL to get R2 path
-        // Audio URL: https://released.strollcast.com/episodes/{id}/{id}.mp3
+        // Build R2 paths
         const audioPath = episode.audio_url.replace("https://released.strollcast.com/", "");
-        const transcriptPath = episode.transcript_url?.replace("https://released.strollcast.com/", "");
+        const vttPath = episode.transcript_url?.replace("https://released.strollcast.com/", "");
+        const scriptPath = `episodes/${episode.id}/script.md`;
 
+        let scriptSize: number | null = null;
+        let scriptUpdated: string | null = null;
         let audioSize: number | null = null;
         let audioUpdated: string | null = null;
-        let transcriptSize: number | null = null;
-        let transcriptUpdated: string | null = null;
+        let vttSize: number | null = null;
+        let vttUpdated: string | null = null;
 
+        // Check script
+        try {
+          const scriptHead = await env.R2.head(scriptPath);
+          if (scriptHead) {
+            scriptSize = scriptHead.size;
+            scriptUpdated = scriptHead.uploaded.toISOString();
+          }
+        } catch {
+          // File not found or error
+        }
+
+        // Check audio
         try {
           const audioHead = await env.R2.head(audioPath);
           if (audioHead) {
@@ -441,12 +455,13 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
           // File not found or error
         }
 
-        if (transcriptPath) {
+        // Check VTT
+        if (vttPath) {
           try {
-            const transcriptHead = await env.R2.head(transcriptPath);
-            if (transcriptHead) {
-              transcriptSize = transcriptHead.size;
-              transcriptUpdated = transcriptHead.uploaded.toISOString();
+            const vttHead = await env.R2.head(vttPath);
+            if (vttHead) {
+              vttSize = vttHead.size;
+              vttUpdated = vttHead.uploaded.toISOString();
             }
           } catch {
             // File not found or error
@@ -455,10 +470,12 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
 
         return {
           ...baseResponse,
+          scriptSize,
+          scriptUpdated,
           audioSize,
           audioUpdated,
-          transcriptSize,
-          transcriptUpdated,
+          vttSize,
+          vttUpdated,
         };
       })
     );
