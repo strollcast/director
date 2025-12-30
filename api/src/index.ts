@@ -565,6 +565,65 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
     );
   }
 
+  // POST /admin/episodes/:id/delete-audio - Delete audio file for an episode
+  const deleteAudioMatch = path.match(/^\/admin\/episodes\/([^/]+)\/delete-audio$/);
+  if (deleteAudioMatch && request.method === "POST") {
+    // Verify API key
+    const authHeader = request.headers.get("Authorization");
+    const apiKey = authHeader?.replace("Bearer ", "");
+
+    if (!apiKey || apiKey !== env.API_KEY) {
+      return Response.json(
+        { error: "Unauthorized" },
+        { status: 401, headers: corsHeaders }
+      );
+    }
+
+    const episodeId = deleteAudioMatch[1];
+
+    // Get episode from database
+    const episode = await env.DB.prepare(
+      `SELECT * FROM episodes WHERE id = ?`
+    )
+      .bind(episodeId)
+      .first<Episode>();
+
+    if (!episode) {
+      return Response.json(
+        { error: "Episode not found" },
+        { status: 404, headers: corsHeaders }
+      );
+    }
+
+    // Delete audio file from R2
+    const audioPath = episode.audio_url.replace("https://released.strollcast.com/", "");
+    try {
+      await env.R2.delete(audioPath);
+      console.log(`Deleted audio: ${audioPath}`);
+    } catch (error) {
+      console.error(`Failed to delete audio ${audioPath}:`, error);
+    }
+
+    // Delete VTT file from R2
+    if (episode.transcript_url) {
+      const vttPath = episode.transcript_url.replace("https://released.strollcast.com/", "");
+      try {
+        await env.R2.delete(vttPath);
+        console.log(`Deleted transcript: ${vttPath}`);
+      } catch (error) {
+        console.error(`Failed to delete transcript ${vttPath}:`, error);
+      }
+    }
+
+    return Response.json(
+      {
+        message: "Audio deleted",
+        episodeId,
+      },
+      { headers: corsHeaders }
+    );
+  }
+
   return Response.json(
     { error: "Not found" },
     { status: 404, headers: corsHeaders }
