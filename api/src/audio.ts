@@ -324,7 +324,7 @@ async function generateSegmentAudioInworld(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
+      "Authorization": `Basic ${btoa(apiKey)}`,
     },
     body: JSON.stringify({
       text,
