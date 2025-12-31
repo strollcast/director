@@ -535,7 +535,7 @@ export async function saveCachedSegment(
   duration: number
 ): Promise<void> {
   try {
-    await r2Cache.put(`segments/${cacheKey}.mp3`, audio, {
+    await r2Cache.put(`tts_cache/${cacheKey}.mp3`, audio, {
       httpMetadata: { contentType: "audio/mpeg" },
       customMetadata: { duration: duration.toString() },
     });
