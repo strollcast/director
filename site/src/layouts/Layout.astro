@@ -25,10 +25,9 @@ const isAdmin = (session?.user as any)?.username === ADMIN_GITHUB_USERNAME;
         <a href="/" class="logo">🚶</a>
         <div class="nav-links">
           <a href="/">Episodes</a>
-          <a href="/how-to">How It Works</a>
           {session ? (
             <>
-              <a href="/submit" class="btn-submit-nav">Submit Paper</a>
+              <a href="/submit" class="btn-submit-nav">Cast Paper</a>
               <div class="user-dropdown">
                 <button class="user-dropdown-trigger">
                   {(session.user as any)?.username || session.user?.name || session.user?.email}
@@ -54,7 +53,13 @@ const isAdmin = (session?.user as any)?.username === ADMIN_GITHUB_USERNAME;
     </main>
     <footer>
       <p>Knowledge is best absorbed in motion.</p>
-      <p class="footer-links"><a href="/terms">Terms of Service</a></p>
+      <p class="footer-links">
+        <a href="/how-to">How It Works</a>
+        <span class="footer-separator">·</span>
+        <a href="/privacy">Privacy</a>
+        <span class="footer-separator">·</span>
+        <a href="/terms">Terms</a>
+      </p>
     </footer>
   </body>
 </html>
@@ -266,6 +271,11 @@ const isAdmin = (session?.user as any)?.username === ADMIN_GITHUB_USERNAME;
 
   .footer-links a:hover {
     color: var(--text-primary);
+  }
+
+  .footer-separator {
+    margin: 0 0.5rem;
+    color: var(--border);
   }
 
   h1 {
