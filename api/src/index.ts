@@ -21,6 +21,11 @@ export class FFmpegContainer extends Container {
   onError(error: unknown): void {
     console.error("FFmpeg container error:", error);
   }
+
+  async alarm(): Promise<void> {
+    // Handle the sleep alarm - this is called when sleepAfter duration elapses
+    console.log("FFmpeg container alarm triggered - sleep timeout reached");
+  }
 }
 
 export interface Env {
