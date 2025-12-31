@@ -1,9 +1,6 @@
 import { generateTranscript } from "./transcript";
 import { generateEpisode, uploadTranscript, type R2Credentials } from "./audio";
-
-// Container class from cloudflare:workers (types not yet in @cloudflare/workers-types)
-// @ts-expect-error Container is a new API, types will be added in future release
-import { Container } from "cloudflare:workers";
+import { Container } from "@cloudflare/containers";
 
 /**
  * FFmpeg Container class for MP3 concatenation.

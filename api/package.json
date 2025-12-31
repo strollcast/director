@@ -12,6 +12,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@cloudflare/containers": "^0.0.31",
     "aws4fetch": "^1.0.20"
   },
   "devDependencies": {
