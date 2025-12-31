@@ -51,6 +51,8 @@ interface ElevenLabsResponse {
 interface InworldResponse {
   audio: {
     url: string;
+  };
+  metadata: {
     duration: number;
     channels: number;
   };
@@ -205,8 +207,12 @@ async function generateSegmentAudioElevenLabs(
   }
 
   // Calculate duration from timestamps
-  const endTimes = data.alignment.character_end_times_seconds;
-  const duration = endTimes.length > 0 ? endTimes[endTimes.length - 1] : 0;
+  const endTimes = data.alignment?.character_end_times_seconds;
+  const duration = endTimes?.length > 0 ? endTimes[endTimes.length - 1] : 0;
+
+  if (!Number.isFinite(duration) || duration <= 0) {
+    throw new Error(`ElevenLabs API returned invalid duration: ${duration}`);
+  }
 
   return { audio: bytes, duration };
 }
@@ -252,7 +258,12 @@ async function generateSegmentAudioInworld(
   const audioBuffer = await audioResponse.arrayBuffer();
   const bytes = new Uint8Array(audioBuffer);
 
-  return { audio: bytes, duration: data.audio.duration };
+  const duration = data.metadata?.duration;
+  if (!Number.isFinite(duration) || duration <= 0) {
+    throw new Error(`Inworld API returned invalid duration: ${duration}`);
+  }
+
+  return { audio: bytes, duration };
 }
 
 /**
@@ -264,8 +275,12 @@ function generateSilenceDuration(durationMs: number): number {
 
 /**
  * Format seconds as VTT timestamp (HH:MM:SS.mmm).
+ * Throws if the value is NaN or negative.
  */
 function formatVttTimestamp(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    throw new Error(`Invalid VTT timestamp: ${seconds}`);
+  }
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
