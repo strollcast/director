@@ -1,60 +1,52 @@
-# Strollcast
+# Strollcast Director
 
-Listen to research papers while you stroll.
+Website and API for Strollcast. For project overview, see [github.com/strollcast](https://github.com/strollcast).
 
-Strollcast transforms dense academic papers into engaging audio podcasts. Each episode features a conversational format with two hosts breaking down complex concepts into accessible explanations—perfect for walks, commutes, or any time you're on the move.
+## Structure
 
-## iOS App
-
-Listen on the go with the native iOS app: [StrollcastApp](https://github.com/strollcast/StrollcastApp). Features offline downloads, background playback, synchronized transcripts with tap-to-seek, and Zotero integration for saving papers to your library.
+```
+director/
+├── site/     # Astro SSR website (Cloudflare Pages)
+├── api/      # Cloudflare Worker API (podcast generation)
+└── designs/  # Design assets
+```
 
 ## Development
 
-This is an [Astro](https://astro.build) static site.
+### Site
 
 ```bash
-# Install dependencies
+cd site
 npm install
-
-# Start dev server
-npm run dev
-
-# Build for production
-npm run build
+npm run dev     # http://localhost:4321
 ```
 
-## Generating Podcasts
-
-The `python/` folder contains the podcast generation script with two TTS backends:
-
-### Preview with macOS TTS (free, fast)
-
-Use `--preview` to quickly evaluate podcast length with built-in macOS voices:
+### API
 
 ```bash
-cd python
-pixi run python generate.py ../public/<episode-folder> --preview
+cd api
+npm install
+npx wrangler dev
 ```
-
-This creates a `<episode>-preview.m4a` file for evaluation.
-
-### Production with ElevenLabs (high quality)
-
-For production-quality audio:
-
-```bash
-export ELEVENLABS_API_KEY="your-api-key"
-cd python
-pixi run python generate.py ../public/<episode-folder>
-```
-
-ElevenLabs responses are cached locally to save API quota on re-runs.
-
-Requires `ffmpeg` for audio processing.
 
 ## Deployment
 
-The site auto-deploys to GitHub Pages on push to `main` via GitHub Actions.
+Both site and worker deploy automatically on push to `main` via GitHub Actions. Deploy runs after CI passes.
+
+### Required Secrets
+
+**GitHub Actions:**
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+- `AUTH_SECRET`
+
+**Cloudflare Worker** (set via `wrangler secret put`):
+- `ANTHROPIC_API_KEY`
+- `ELEVENLABS_API_KEY`
+- `INWORLD_API_KEY`
+- `API_KEY`
+- `R2_ACCESS_KEY_ID`
+- `R2_SECRET_ACCESS_KEY`
 
 ## License
 
