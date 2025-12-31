@@ -247,10 +247,20 @@ async function generateSegmentAudioInworld(
     throw new Error(`Inworld API error: ${response.status} ${errorText}`);
   }
 
-  const data = (await response.json()) as InworldResponse;
+  const data = await response.json() as Record<string, unknown>;
+  console.log("Inworld API response:", JSON.stringify(data, null, 2));
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const anyData = data as any;
+
+  // Handle different response structures
+  const audioUrl = anyData.audio?.url || anyData.audio_url;
+  if (!audioUrl) {
+    throw new Error(`Inworld API response missing audio URL: ${JSON.stringify(data)}`);
+  }
 
   // Fetch the audio from the URL
-  const audioResponse = await fetch(data.audio.url);
+  const audioResponse = await fetch(audioUrl);
   if (!audioResponse.ok) {
     throw new Error(`Failed to fetch Inworld audio: ${audioResponse.status}`);
   }
@@ -258,9 +268,10 @@ async function generateSegmentAudioInworld(
   const audioBuffer = await audioResponse.arrayBuffer();
   const bytes = new Uint8Array(audioBuffer);
 
-  const duration = data.metadata?.duration;
+  // Try multiple locations for duration
+  const duration = anyData.metadata?.duration ?? anyData.duration ?? anyData.audio?.duration;
   if (!Number.isFinite(duration) || duration <= 0) {
-    throw new Error(`Inworld API returned invalid duration: ${duration}`);
+    throw new Error(`Inworld API returned invalid duration: ${duration}. Response: ${JSON.stringify(data)}`);
   }
 
   return { audio: bytes, duration };
