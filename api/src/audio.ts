@@ -2,10 +2,10 @@
  * Audio generation for Strollcast.
  *
  * Generates podcast audio from scripts using ElevenLabs or Inworld TTS.
- * Runs directly in Cloudflare Worker without Modal/ffmpeg dependency.
+ * Uses Cloudflare Container with FFmpeg for proper MP3 concatenation.
  */
 
-import { TagLib } from "taglib-wasm";
+import { AwsClient } from "aws4fetch";
 
 // TTS Provider types
 export type TTSProvider = "elevenlabs" | "inworld";
@@ -57,7 +57,7 @@ interface InworldResponse {
 }
 
 interface GenerateEpisodeResult {
-  audioData: Uint8Array;
+  audioUrl: string;  // URL where audio was uploaded by container
   vttContent: string;
   durationSeconds: number;
   segmentCount: number;
@@ -299,62 +299,65 @@ function formatVttTimestamp(seconds: number): string {
   return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toFixed(3).padStart(6, "0")}`;
 }
 
-// Singleton TagLib instance for reuse
-let taglibInstance: TagLib | null = null;
-
-async function getTagLib(): Promise<TagLib> {
-  if (!taglibInstance) {
-    taglibInstance = await TagLib.initialize();
-  }
-  return taglibInstance;
+/**
+ * R2 credentials for generating presigned URLs.
+ * Must be set via wrangler secrets.
+ */
+export interface R2Credentials {
+  accessKeyId: string;
+  secretAccessKey: string;
+  accountId: string;
 }
 
 /**
- * Fix MP3 metadata after concatenation using taglib-wasm.
- * This ensures the duration is correctly reported by audio players.
+ * Generate a presigned URL for R2 object access.
+ * Uses AWS Signature V4 via aws4fetch.
  */
-export async function fixMp3Metadata(
-  audioData: Uint8Array,
-  title: string,
-  artist: string
-): Promise<{ audioData: Uint8Array; durationSeconds: number }> {
-  try {
-    const taglib = await getTagLib();
-    const audioFile = await taglib.open(audioData);
+async function generatePresignedUrl(
+  credentials: R2Credentials,
+  bucket: string,
+  key: string,
+  method: "GET" | "PUT",
+  expiresIn: number = 3600
+): Promise<string> {
+  const client = new AwsClient({
+    service: "s3",
+    region: "auto",
+    accessKeyId: credentials.accessKeyId,
+    secretAccessKey: credentials.secretAccessKey,
+  });
 
-    // Read the actual duration from the audio data
-    const props = audioFile.audioProperties();
-    const durationSeconds = props?.length ?? 0;
+  const url = `https://${credentials.accountId}.r2.cloudflarestorage.com/${bucket}/${key}`;
+  const signedRequest = await client.sign(
+    new Request(`${url}?X-Amz-Expires=${expiresIn}`, { method }),
+    { aws: { signQuery: true } }
+  );
 
-    // Set proper ID3 tags
-    const tag = audioFile.tag();
-    if (tag) {
-      tag.setTitle(title);
-      tag.setArtist(artist);
-      tag.setAlbum("Strollcast");
-      tag.setGenre("Podcast");
-      tag.setComment(`Duration: ${Math.floor(durationSeconds / 60)}:${Math.floor(durationSeconds % 60).toString().padStart(2, "0")}`);
-    }
+  return signedRequest.url;
+}
 
-    // Save and get the modified buffer
-    audioFile.save();
-    const modifiedBuffer = audioFile.getFileBuffer();
-    audioFile.dispose();
+/**
+ * Request body for FFmpeg container /concat endpoint.
+ */
+interface ConcatRequest {
+  segments: string[];  // Presigned URLs for input MP3 files
+  output_url: string;  // Presigned URL for uploading result
+  metadata: {
+    title: string;
+    artist: string;
+    album: string;
+    genre: string;
+  };
+}
 
-    console.log(`TagLib: Fixed MP3 metadata, duration: ${durationSeconds}s`);
-
-    return {
-      audioData: modifiedBuffer,
-      durationSeconds,
-    };
-  } catch (error) {
-    console.error("TagLib error, returning original audio:", error);
-    // Return original audio if taglib fails
-    return {
-      audioData,
-      durationSeconds: 0,
-    };
-  }
+/**
+ * Response from FFmpeg container /concat endpoint.
+ */
+interface ConcatResponse {
+  success: boolean;
+  duration_seconds: number;
+  file_size: number;
+  error?: string;
 }
 
 /**
@@ -427,6 +430,8 @@ export async function generateEpisode(
   apiKeys: { elevenlabs?: string; inworld?: string },
   r2Bucket: R2Bucket,
   r2Cache: R2Bucket,
+  ffmpegContainer: DurableObjectNamespace,
+  r2Credentials: R2Credentials,
   provider: TTSProvider = "inworld" // Default to Inworld for new podcasts
 ): Promise<GenerateEpisodeResult> {
   // Validate API key for provider
@@ -456,8 +461,8 @@ export async function generateEpisode(
   const getVoiceId = (speaker: string) =>
     provider === "elevenlabs" ? ELEVENLABS_VOICES[speaker] : INWORLD_VOICES[speaker];
 
-  // Generate all segments
-  const audioChunks: Uint8Array[] = [];
+  // Generate all segments and collect cache keys
+  const segmentCacheKeys: string[] = [];
   const timingInfo: TimingInfo[] = [];
   let currentTime = 0;
   let cacheHits = 0;
@@ -516,7 +521,8 @@ export async function generateEpisode(
         await saveCachedSegment(r2Cache, cacheKey, audio);
       }
 
-      audioChunks.push(audio);
+      // Track cache key for container
+      segmentCacheKeys.push(cacheKey);
 
       // Track timing for VTT
       timingInfo.push({
@@ -534,30 +540,79 @@ export async function generateEpisode(
     }
   }
 
-  // Concatenate all audio chunks (MP3 files can be concatenated directly)
-  const totalLength = audioChunks.reduce((sum, chunk) => sum + chunk.length, 0);
-  const concatenatedAudio = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const chunk of audioChunks) {
-    concatenatedAudio.set(chunk, offset);
-    offset += chunk.length;
-  }
-
-  // Fix MP3 metadata using taglib-wasm to ensure correct duration display
-  const { audioData: fixedAudio, durationSeconds: taglibDuration } = await fixMp3Metadata(
-    concatenatedAudio,
-    episodeName,
-    "Strollcast"
+  // Generate presigned URLs for all cached segments
+  console.log(`Generating presigned URLs for ${segmentCacheKeys.length} segments...`);
+  const segmentUrls = await Promise.all(
+    segmentCacheKeys.map((key) =>
+      generatePresignedUrl(r2Credentials, "strollcast-cache", `segments/${key}.mp3`, "GET")
+    )
   );
 
-  // Use taglib duration if available, otherwise use calculated time
-  const finalDuration = taglibDuration > 0 ? taglibDuration : currentTime;
+  // Derive episode ID from name
+  const parts = episodeName.split("-");
+  let episodeId: string;
+  if (parts.length >= 3) {
+    const name = parts.slice(2).join("-");
+    const year = parts[1];
+    episodeId = `${name}-${year}`;
+  } else {
+    episodeId = episodeName;
+  }
+
+  // Generate presigned URL for output
+  const outputKey = `episodes/${episodeId}/${episodeId}.mp3`;
+  const outputUrl = await generatePresignedUrl(
+    r2Credentials,
+    "strollcast-output",
+    outputKey,
+    "PUT"
+  );
+
+  // Call FFmpeg container to concatenate and upload
+  console.log("Calling FFmpeg container for concatenation...");
+  const containerId = ffmpegContainer.idFromName("audio-processor");
+  const container = ffmpegContainer.get(containerId);
+
+  const concatRequest: ConcatRequest = {
+    segments: segmentUrls,
+    output_url: outputUrl,
+    metadata: {
+      title: episodeName,
+      artist: "Strollcast",
+      album: "Strollcast",
+      genre: "Podcast",
+    },
+  };
+
+  const containerResponse = await container.fetch("http://container/concat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(concatRequest),
+  });
+
+  if (!containerResponse.ok) {
+    const errorText = await containerResponse.text();
+    throw new Error(`FFmpeg container error: ${containerResponse.status} ${errorText}`);
+  }
+
+  const concatResult = (await containerResponse.json()) as ConcatResponse;
+  if (!concatResult.success) {
+    throw new Error(`FFmpeg concatenation failed: ${concatResult.error}`);
+  }
+
+  console.log(`FFmpeg: Concatenated ${segmentCacheKeys.length} segments, duration: ${concatResult.duration_seconds}s`);
+
+  // Use container's duration (accurate from ffprobe)
+  const finalDuration = concatResult.duration_seconds;
 
   // Generate VTT
   const vttContent = generateWebVtt(timingInfo);
 
+  // Audio URL (container uploaded to R2 via presigned URL)
+  const audioUrl = `https://released.strollcast.com/${outputKey}`;
+
   return {
-    audioData: fixedAudio,
+    audioUrl,
     vttContent,
     durationSeconds: finalDuration,
     segmentCount: segments.filter((s) => s.speaker !== "PAUSE").length,

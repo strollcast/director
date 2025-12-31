@@ -1,16 +1,21 @@
 import { generateTranscript } from "./transcript";
-import { generateEpisode, uploadEpisode, uploadTranscript } from "./audio";
+import { generateEpisode, uploadTranscript, type R2Credentials } from "./audio";
 
 export interface Env {
   DB: D1Database;
   JOBS_QUEUE: Queue;
   R2: R2Bucket;        // strollcast-output: episodes, scripts, transcripts
   R2_CACHE: R2Bucket;  // strollcast-cache: segment cache
+  FFMPEG_CONTAINER: DurableObjectNamespace;  // FFmpeg container for audio concatenation
   // API keys
   ANTHROPIC_API_KEY: string;
   ELEVENLABS_API_KEY: string;
   INWORLD_API_KEY: string;
   API_KEY: string; // For authenticating POST /jobs requests
+  // R2 credentials for presigned URLs
+  R2_ACCESS_KEY_ID: string;
+  R2_SECRET_ACCESS_KEY: string;
+  CF_ACCOUNT_ID: string;
 }
 
 // ---------- Episode Types ----------
@@ -811,7 +816,14 @@ async function handleGenerateAudio(jobId: string, env: Env): Promise<void> {
   const lastName = firstAuthor.split(" ").pop()?.toLowerCase() || "unknown";
   const episodeName = `${lastName}-${job.year || 2024}-${episodeId.split("-")[0]}`;
 
-  // Generate audio directly in the Worker (defaults to Inworld TTS)
+  // R2 credentials for presigned URLs
+  const r2Credentials: R2Credentials = {
+    accessKeyId: env.R2_ACCESS_KEY_ID,
+    secretAccessKey: env.R2_SECRET_ACCESS_KEY,
+    accountId: env.CF_ACCOUNT_ID,
+  };
+
+  // Generate audio using FFmpeg container (defaults to Inworld TTS)
   console.log(`Generating audio for ${episodeName}...`);
   const result = await generateEpisode(
     scriptContent,
@@ -821,7 +833,9 @@ async function handleGenerateAudio(jobId: string, env: Env): Promise<void> {
       inworld: env.INWORLD_API_KEY,
     },
     env.R2,
-    env.R2_CACHE
+    env.R2_CACHE,
+    env.FFMPEG_CONTAINER,
+    r2Credentials
   );
 
   console.log(
@@ -829,8 +843,8 @@ async function handleGenerateAudio(jobId: string, env: Env): Promise<void> {
     `${result.cacheHits} cache hits, ${result.apiCalls} API calls`
   );
 
-  // Upload audio and transcript to R2
-  const audioUrl = await uploadEpisode(env.R2, episodeName, result.audioData);
+  // Audio already uploaded by container, just upload transcript
+  const audioUrl = result.audioUrl;
   const vttUrl = await uploadTranscript(env.R2, episodeId, result.vttContent);
 
   // Format duration string
