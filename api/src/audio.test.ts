@@ -1,7 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { fixMp3Metadata, parseScript } from './audio';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 
 // Create a minimal valid MP3 programmatically
 // MP3 frame header: 0xFF 0xFB (MPEG Audio Layer 3, 128kbps, 44100Hz)

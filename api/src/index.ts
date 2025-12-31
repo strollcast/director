@@ -412,11 +412,14 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
       );
     }
 
-    // Join with jobs to get submitted_by
+    // Join with jobs to get submitted_by (only latest job per episode)
     const { results } = await env.DB.prepare(
       `SELECT e.*, j.submitted_by
        FROM episodes e
        LEFT JOIN jobs j ON j.episode_id = e.id
+         AND j.created_at = (
+           SELECT MAX(created_at) FROM jobs WHERE episode_id = e.id
+         )
        ORDER BY e.year DESC, e.created_at DESC`
     ).all<Episode & { submitted_by: string | null }>();
 
