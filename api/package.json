@@ -13,8 +13,7 @@
   },
   "dependencies": {
     "@cloudflare/containers": "^0.0.31",
-    "aws4fetch": "^1.0.20",
-    "taglib-wasm": "^0.5.4"
+    "aws4fetch": "^1.0.20"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20251231.0",

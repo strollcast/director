@@ -6,34 +6,80 @@
  */
 
 import { AwsClient } from "aws4fetch";
-import { TagLib } from "taglib-wasm";
 
-// Lazy-initialized TagLib instance
-let taglibInstance: Awaited<ReturnType<typeof TagLib.initialize>> | null = null;
+// MP3 bitrate lookup tables (kbps)
+const BITRATE_V1_L3 = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0];
+const BITRATE_V2_L3 = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0];
+const SAMPLE_RATES_V1 = [44100, 48000, 32000, 0];
+const SAMPLE_RATES_V2 = [22050, 24000, 16000, 0];
+const SAMPLE_RATES_V25 = [11025, 12000, 8000, 0];
 
-async function getTagLib(): Promise<Awaited<ReturnType<typeof TagLib.initialize>>> {
-  if (!taglibInstance) {
-    taglibInstance = await TagLib.initialize();
-  }
-  return taglibInstance;
+/**
+ * Parse MP3 frame header to get bitrate and sample rate.
+ * Returns null if not a valid MP3 frame.
+ */
+function parseMp3FrameHeader(data: Uint8Array, offset: number): { bitrate: number; sampleRate: number } | null {
+  if (offset + 4 > data.length) return null;
+
+  // Check frame sync (11 bits set)
+  if (data[offset] !== 0xFF || (data[offset + 1] & 0xE0) !== 0xE0) return null;
+
+  const b1 = data[offset + 1];
+  const b2 = data[offset + 2];
+
+  // Version: 00 = 2.5, 01 = reserved, 10 = 2, 11 = 1
+  const version = (b1 >> 3) & 0x03;
+  if (version === 1) return null; // Reserved
+
+  // Layer: 00 = reserved, 01 = III, 10 = II, 11 = I
+  const layer = (b1 >> 1) & 0x03;
+  if (layer !== 1) return null; // We only handle Layer III (MP3)
+
+  const bitrateIndex = (b2 >> 4) & 0x0F;
+  const sampleRateIndex = (b2 >> 2) & 0x03;
+
+  if (bitrateIndex === 0 || bitrateIndex === 15) return null;
+  if (sampleRateIndex === 3) return null;
+
+  const isV1 = version === 3;
+  const bitrate = (isV1 ? BITRATE_V1_L3 : BITRATE_V2_L3)[bitrateIndex] * 1000;
+  const sampleRates = version === 3 ? SAMPLE_RATES_V1 : version === 2 ? SAMPLE_RATES_V2 : SAMPLE_RATES_V25;
+  const sampleRate = sampleRates[sampleRateIndex];
+
+  return { bitrate, sampleRate };
 }
 
 /**
- * Get duration of MP3 audio data using taglib-wasm.
+ * Get duration of MP3 audio data by parsing headers.
+ * Scans for first valid frame to get bitrate, then calculates duration from file size.
  */
-async function getMp3Duration(audioData: Uint8Array): Promise<number> {
-  const taglib = await getTagLib();
-  const file = await taglib.open(audioData);
-
-  try {
-    const properties = file.audioProperties();
-    if (!properties) {
-      throw new Error("Failed to get audio properties from MP3");
-    }
-    return properties.length;
-  } finally {
-    file.dispose();
+export function getMp3Duration(audioData: Uint8Array): number {
+  // Skip ID3v2 tag if present
+  let offset = 0;
+  if (audioData.length > 10 &&
+      audioData[0] === 0x49 && audioData[1] === 0x44 && audioData[2] === 0x33) { // "ID3"
+    const size = ((audioData[6] & 0x7F) << 21) |
+                 ((audioData[7] & 0x7F) << 14) |
+                 ((audioData[8] & 0x7F) << 7) |
+                 (audioData[9] & 0x7F);
+    offset = 10 + size;
   }
+
+  // Find first valid MP3 frame
+  let frameInfo = null;
+  for (let i = offset; i < Math.min(offset + 4096, audioData.length - 4); i++) {
+    frameInfo = parseMp3FrameHeader(audioData, i);
+    if (frameInfo) break;
+  }
+
+  if (!frameInfo || frameInfo.bitrate === 0) {
+    // Fallback: assume 128kbps
+    return audioData.length / 16000;
+  }
+
+  // Duration = file size in bits / bitrate
+  const audioBytesEstimate = audioData.length - offset;
+  return (audioBytesEstimate * 8) / frameInfo.bitrate;
 }
 
 // TTS Provider types
@@ -292,11 +338,11 @@ async function generateSegmentAudioInworld(
   const audioBuffer = await audioResponse.arrayBuffer();
   const bytes = new Uint8Array(audioBuffer);
 
-  // Get accurate duration from MP3 using taglib-wasm
-  const duration = await getMp3Duration(bytes);
+  // Get duration from MP3 header parsing
+  const duration = getMp3Duration(bytes);
 
   if (!Number.isFinite(duration) || duration <= 0) {
-    throw new Error(`TagLib returned invalid duration: ${duration}`);
+    throw new Error(`Failed to parse MP3 duration: ${duration}`);
   }
 
   return { audio: bytes, duration };

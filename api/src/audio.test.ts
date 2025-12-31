@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { parseScript, getCachedSegment, saveCachedSegment } from './audio';
+import { parseScript, getCachedSegment, saveCachedSegment, getMp3Duration } from './audio';
 
 describe('parseScript', () => {
   it('parses speaker segments correctly', () => {
@@ -136,5 +136,91 @@ describe('saveCachedSegment', () => {
 
     expect(consoleError).toHaveBeenCalled();
     consoleError.mockRestore();
+  });
+});
+
+describe('getMp3Duration', () => {
+  // Helper to create a minimal MP3 frame header
+  // Frame sync: 0xFF 0xFB (MPEG1 Layer3)
+  // 0x90 = bitrate index 9 (128kbps for V1L3) + sample rate 0 (44100Hz)
+  function createMp3Frame(bitrateByte: number, dataSize: number): Uint8Array {
+    const data = new Uint8Array(dataSize);
+    data[0] = 0xFF;  // Sync
+    data[1] = 0xFB;  // MPEG1, Layer III, no CRC
+    data[2] = bitrateByte;  // Bitrate + sample rate
+    data[3] = 0x00;
+    return data;
+  }
+
+  it('parses 128kbps MP3 duration correctly', () => {
+    // 128kbps = bitrate index 9 = 0x90 (with 44100Hz sample rate)
+    // 16000 bytes at 128kbps = 1 second
+    const mp3Data = createMp3Frame(0x90, 16000);
+    const duration = getMp3Duration(mp3Data);
+
+    // duration = (16000 * 8) / 128000 = 1.0 seconds
+    expect(duration).toBeCloseTo(1.0, 1);
+  });
+
+  it('parses 192kbps MP3 duration correctly', () => {
+    // 192kbps = bitrate index 11 = 0xB0 (with 44100Hz sample rate)
+    // 24000 bytes at 192kbps = 1 second
+    const mp3Data = createMp3Frame(0xB0, 24000);
+    const duration = getMp3Duration(mp3Data);
+
+    // duration = (24000 * 8) / 192000 = 1.0 seconds
+    expect(duration).toBeCloseTo(1.0, 1);
+  });
+
+  it('skips ID3v2 tag and parses correctly', () => {
+    // Create ID3v2 header + MP3 frame
+    // ID3v2 header: "ID3" + version + flags + size (syncsafe int)
+    const id3Size = 100;  // Size of ID3 tag content
+    const mp3Size = 16000;
+    const data = new Uint8Array(10 + id3Size + mp3Size);
+
+    // ID3v2 header
+    data[0] = 0x49;  // 'I'
+    data[1] = 0x44;  // 'D'
+    data[2] = 0x33;  // '3'
+    data[3] = 0x04;  // Version major
+    data[4] = 0x00;  // Version minor
+    data[5] = 0x00;  // Flags
+    // Size as syncsafe integer (100 = 0x64)
+    data[6] = 0x00;
+    data[7] = 0x00;
+    data[8] = 0x00;
+    data[9] = 0x64;  // 100
+
+    // MP3 frame starts at offset 10 + 100 = 110
+    const frameOffset = 10 + id3Size;
+    data[frameOffset] = 0xFF;
+    data[frameOffset + 1] = 0xFB;
+    data[frameOffset + 2] = 0x90;  // 128kbps
+    data[frameOffset + 3] = 0x00;
+
+    const duration = getMp3Duration(data);
+
+    // duration = (16000 * 8) / 128000 = 1.0 seconds (ignoring ID3 tag)
+    expect(duration).toBeCloseTo(1.0, 1);
+  });
+
+  it('falls back to estimate for invalid data', () => {
+    // Random data with no valid MP3 frame
+    const data = new Uint8Array(16000);
+    for (let i = 0; i < data.length; i++) {
+      data[i] = i % 256;
+    }
+
+    const duration = getMp3Duration(data);
+
+    // Fallback: 16000 / 16000 = 1.0 seconds (assuming 128kbps)
+    expect(duration).toBeCloseTo(1.0, 1);
+  });
+
+  it('handles empty data', () => {
+    const data = new Uint8Array(0);
+    const duration = getMp3Duration(data);
+    expect(duration).toBe(0);
   });
 });
