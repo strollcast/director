@@ -324,7 +324,7 @@ async function generateSegmentAudioInworld(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Basic ${btoa(apiKey)}`,
+      "Authorization": `Basic ${apiKey} `,
     },
     body: JSON.stringify({
       text,
@@ -340,7 +340,7 @@ async function generateSegmentAudioInworld(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Inworld API error: ${response.status} ${errorText}`);
+    throw new Error(`Inworld API error: ${response.status} ${errorText} `);
   }
 
   const data = await response.json() as InworldApiResponse;
@@ -350,11 +350,11 @@ async function generateSegmentAudioInworld(
   try {
     duration = getInworldDuration(data);
   } catch {
-    throw new Error(`Inworld API response missing word timestamps: ${JSON.stringify(data)}`);
+    throw new Error(`Inworld API response missing word timestamps: ${JSON.stringify(data)} `);
   }
 
   if (!Number.isFinite(duration) || duration <= 0) {
-    throw new Error(`Invalid duration from timestamps: ${duration}`);
+    throw new Error(`Invalid duration from timestamps: ${duration} `);
   }
 
   // Get audio bytes - handle both base64 audioContent and audio URL
@@ -371,12 +371,12 @@ async function generateSegmentAudioInworld(
     // Fetch from URL
     const audioResponse = await fetch(data.audio.url);
     if (!audioResponse.ok) {
-      throw new Error(`Failed to fetch Inworld audio: ${audioResponse.status}`);
+      throw new Error(`Failed to fetch Inworld audio: ${audioResponse.status} `);
     }
     const audioBuffer = await audioResponse.arrayBuffer();
     bytes = new Uint8Array(audioBuffer);
   } else {
-    throw new Error(`Inworld API response missing audio: ${JSON.stringify(data)}`);
+    throw new Error(`Inworld API response missing audio: ${JSON.stringify(data)} `);
   }
 
   return { audio: bytes, duration };
@@ -395,12 +395,12 @@ function generateSilenceDuration(durationMs: number): number {
  */
 function formatVttTimestamp(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) {
-    throw new Error(`Invalid VTT timestamp: ${seconds}`);
+    throw new Error(`Invalid VTT timestamp: ${seconds} `);
   }
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
-  return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toFixed(3).padStart(6, "0")}`;
+  return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toFixed(3).padStart(6, "0")} `;
 }
 
 /**
