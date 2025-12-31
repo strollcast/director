@@ -38,9 +38,10 @@ invocation_logs = true
 persist = true
 
 # FFmpeg container for MP3 concatenation
+# Image is pre-built and pushed to GHCR by GitHub Actions
 [[containers]]
 class_name = "FFmpegContainer"
-image = "./container/Dockerfile"
+image = "ghcr.io/strollcast/director/ffmpeg:latest"
 max_instances = 5
 
 [[durable_objects.bindings]]

@@ -1,20 +1,82 @@
 name: Deploy
 
 on:
-  push:
+  # Run after CI completes successfully
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
 jobs:
+  # Check if container files changed
+  check-container-changes:
+    name: Check Container Changes
+    runs-on: ubuntu-latest
+    # Only run if CI succeeded (or manual trigger)
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    outputs:
+      changed: ${{ steps.filter.outputs.container }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # For workflow_run, checkout the commit that triggered CI
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            container:
+              - 'api/container/**'
+
+  # Build and push container image only when container files change
+  build-container:
+    name: Build FFmpeg Container
+    needs: check-container-changes
+    if: needs.check-container-changes.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: api/container
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/ffmpeg:latest
+            ghcr.io/${{ github.repository }}/ffmpeg:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   deploy-site:
     name: Deploy Astro Site to Cloudflare Pages
     runs-on: ubuntu-latest
+    # Only run if CI succeeded (or manual trigger)
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     permissions:
       contents: read
       deployments: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -46,9 +108,17 @@ jobs:
   deploy-worker:
     name: Deploy API Worker
     runs-on: ubuntu-latest
+    # Wait for container build if it ran, but don't fail if it was skipped
+    needs: [check-container-changes, build-container]
+    if: |
+      always() &&
+      !failure() &&
+      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
