@@ -14,7 +14,7 @@ export type TTSProvider = "elevenlabs" | "inworld";
 
 // ElevenLabs voice configuration
 const ELEVENLABS_VOICES: Record<string, string> = {
-  ERIC: "gP8LZQ3GGokV0MP5JYjg", // ElevenLabs Eric voice
+  ERIC: "l7PKZGTaZgsdjGbTQRfS", // ElevenLabs Eric voice
   MAYA: "21m00Tcm4TlvDq8ikWAM", // ElevenLabs Rachel voice
 };
 
@@ -482,7 +482,7 @@ export async function generateEpisode(
   r2Cache: R2Bucket,
   ffmpegContainer: DurableObjectNamespace,
   r2Credentials: R2Credentials,
-  provider: TTSProvider = "inworld" // Default to Inworld for new podcasts
+  provider: TTSProvider = "elevenlabs"
 ): Promise<GenerateEpisodeResult> {
   // Validate API key for provider
   const apiKey = provider === "elevenlabs" ? apiKeys.elevenlabs : apiKeys.inworld;

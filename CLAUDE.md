@@ -20,7 +20,7 @@ Strollcast transforms ML research papers into audio podcasts. The project consis
 ## Voice Configuration
 
 ### ElevenLabs (production)
-- **Eric:** `gP8LZQ3GGokV0MP5JYjg` - Male voice
+- **Eric:** `l7PKZGTaZgsdjGbTQRfS` - Male voice, not Eric on ElevenLabs
 - **Maya:** `21m00Tcm4TlvDq8ikWAM` - Rachel, clear female voice
 
 ### macOS TTS (preview)

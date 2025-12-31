@@ -110,14 +110,15 @@ func handleConcat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Run FFmpeg to concatenate
+	// Run FFmpeg to concatenate and normalize
 	outputPath := filepath.Join(workDir, "output.mp3")
-	fmt.Println("Running FFmpeg concatenation...")
+	fmt.Println("Running FFmpeg concatenation with volume normalization...")
 
 	args := []string{
 		"-f", "concat",
 		"-safe", "0",
 		"-i", listFile,
+		"-af", "loudnorm=I=-16:TP=-1.5:LRA=11",  // Normalize to -16 LUFS (podcast standard)
 		"-c:a", "libmp3lame",
 		"-b:a", "128k",
 		"-ar", "44100",
@@ -179,7 +180,7 @@ func handleConcat(w http.ResponseWriter, r *http.Request) {
 		FileSize:        fileSize,
 	})
 
-	fmt.Printf("Successfully concatenated %d segments: %.2fs, %d bytes\n", len(req.Segments), duration, fileSize)
+	fmt.Printf("Successfully concatenated and normalized %d segments: %.2fs, %d bytes\n", len(req.Segments), duration, fileSize)
 }
 
 func downloadFile(url, destPath string) error {
