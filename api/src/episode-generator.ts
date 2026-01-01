@@ -585,6 +585,7 @@ export async function generateEpisode(
   // Generate audio segments with caching
   const { timingInfo, cacheKeys, cacheHits, apiCalls } =
     await generateAudioSegments(segments, provider, apiKey, r2Cache);
+  console.log(`generateEpisode: generated audio segments for '${episodeId}'.`);
 
   // Concatenate audio using FFmpeg container
   const { audioUrl, durationSeconds } = await concatenateWithFFmpeg(
@@ -594,10 +595,11 @@ export async function generateEpisode(
     r2Credentials,
     ffmpegContainer
   );
+  console.log(`generateEpisode: concatenated prompt files for '${episodeId}'.`);
 
   // Generate VTT transcript
   const vttContent = generateWebVtt(timingInfo);
-  console.log(`Generated VTT file for '${episodeName}'.`);
+  console.log(`generateEpisode: generated VTT file for '${episodeName}'.`);
 
   const segmentCount = segments.filter((s) => s.speaker !== "PAUSE").length;
 
