@@ -716,8 +716,8 @@ async function handleQueue(
         .bind(String(error), job_id)
         .run();
 
-      // Let the queue retry
-      message.retry();
+      // Acknowledge the message - don't retry failed jobs
+      message.ack();
     }
   }
 }
@@ -730,6 +730,12 @@ async function handleGenerateTranscript(jobId: string, env: Env): Promise<void> 
 
   if (!job) {
     throw new Error(`Job ${jobId} not found`);
+  }
+
+  // Skip processing if job is already failed or completed
+  if (job.status === 'failed' || job.status === 'completed') {
+    console.log(`Job ${jobId} already in terminal state: ${job.status}, skipping`);
+    return;
   }
 
   // Generate episode ID from title (same logic used in audio generation)
@@ -795,6 +801,12 @@ async function handleGenerateAudio(jobId: string, env: Env): Promise<void> {
 
   if (!job) {
     throw new Error(`Job ${jobId} not found`);
+  }
+
+  // Skip processing if job is already failed or completed
+  if (job.status === 'failed' || job.status === 'completed') {
+    console.log(`Job ${jobId} already in terminal state: ${job.status}, skipping`);
+    return;
   }
 
   // Generate episode ID from title
