@@ -41,22 +41,17 @@ describe('validateApiKey', () => {
 });
 
 describe('deriveEpisodeId', () => {
-  it('converts author-year-title format to title-year', () => {
-    const episodeId = deriveEpisodeId('smith-2024-attention');
-    expect(episodeId).toBe('attention-2024');
+  it('returns episode name as-is (no conversion needed)', () => {
+    const episodeId = deriveEpisodeId('chen-2023-punica_multi_tenant');
+    expect(episodeId).toBe('chen-2023-punica_multi_tenant');
   });
 
-  it('handles multi-part titles', () => {
-    const episodeId = deriveEpisodeId('smith-2024-attention-is-all-you-need');
-    expect(episodeId).toBe('attention-is-all-you-need-2024');
+  it('handles various episode name formats', () => {
+    expect(deriveEpisodeId('dao-2023-flashattention_2_fa')).toBe('dao-2023-flashattention_2_fa');
+    expect(deriveEpisodeId('narayanan-2021-efficient_large_sca')).toBe('narayanan-2021-efficient_large_sca');
   });
 
-  it('returns original name if format is unexpected', () => {
-    const episodeId = deriveEpisodeId('episode-only');
-    expect(episodeId).toBe('episode-only');
-  });
-
-  it('handles single-word episodes', () => {
+  it('returns single word as-is', () => {
     const episodeId = deriveEpisodeId('standalone');
     expect(episodeId).toBe('standalone');
   });
@@ -236,14 +231,14 @@ describe('concatenateWithFFmpeg', () => {
 
     const result = await concatenateWithFFmpeg(
       ['key1', 'key2', 'key3'],
-      'attention-2024',
+      'smith-2024-attention',
       'smith-2024-attention',
       mockCredentials,
       mockNamespace
     );
 
     expect(result.audioUrl).toBe(
-      'https://released.strollcast.com/episodes/attention-2024/attention-2024.mp3'
+      'https://released.strollcast.com/episodes/smith-2024-attention/smith-2024-attention.mp3'
     );
     expect(result.durationSeconds).toBe(125.5);
     expect(mockContainer.fetch).toHaveBeenCalledWith(
@@ -374,7 +369,7 @@ describe('generateEpisode (integration)', () => {
       'elevenlabs'
     );
 
-    expect(result.audioUrl).toContain('attention-2024.mp3');
+    expect(result.audioUrl).toContain('smith-2024-attention.mp3');
     expect(result.vttContent).toContain('WEBVTT');
     expect(result.durationSeconds).toBe(5.0);
     expect(result.segmentCount).toBe(2);

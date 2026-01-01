@@ -740,7 +740,11 @@ async function handleGenerateTranscript(jobId: string, env: Env): Promise<void> 
   }
 
   // Generate episode ID from title (same logic used in audio generation)
-  const episodeId = generateEpisodeId(job.title || "untitled", job.year || 2024);
+  const episodeId = generateEpisodeId(
+    job.title || "untitled",
+    job.year || 2024,
+    job.authors || "unknown"
+  );
   const scriptKey = `episodes/${episodeId}/script.md`;
 
   // Check if script already exists in R2 (idempotency)
@@ -811,7 +815,11 @@ async function handleGenerateAudio(jobId: string, env: Env): Promise<void> {
   }
 
   // Generate episode ID from title
-  const episodeId = generateEpisodeId(job.title || "untitled", job.year || 2024);
+  const episodeId = generateEpisodeId(
+    job.title || "untitled",
+    job.year || 2024,
+    job.authors || "unknown"
+  );
 
   // Check if audio file already exists in R2 (idempotency)
   const mp3Path = `episodes/${episodeId}/${episodeId}.mp3`;
@@ -851,10 +859,8 @@ async function handleGenerateAudio(jobId: string, env: Env): Promise<void> {
   }
   const scriptContent = await scriptObject.text();
 
-  // Derive episode name
-  const firstAuthor = (job.authors || "unknown").split(",")[0].split(" and ")[0].trim();
-  const lastName = firstAuthor.split(" ").pop()?.toLowerCase() || "unknown";
-  const episodeName = `${lastName}-${job.year || 2024}-${episodeId.split("-")[0]}`;
+  // Episode name is now the same as episode ID
+  const episodeName = episodeId;
 
   // R2 credentials for presigned URLs
   const r2Credentials: R2Credentials = {
@@ -938,14 +944,30 @@ async function handleGenerateAudio(jobId: string, env: Env): Promise<void> {
   console.log(`Episode ${episodeId} completed: ${audioUrl}`);
 }
 
-function generateEpisodeId(title: string, year: number): string {
-  // Convert title to slug: "PagedAttention: Memory Management..." -> "pagedattention"
-  const slug = title
+function generateEpisodeId(title: string, year: number, authors: string): string {
+  // Validate required parameters
+  if (!title || title.trim() === "") {
+    throw new Error("Title is required for episode ID generation");
+  }
+  if (!year || year < 1900 || year > 2100) {
+    throw new Error(`Invalid year: ${year}`);
+  }
+  if (!authors || authors.trim() === "") {
+    throw new Error("Authors is required for episode ID generation");
+  }
+
+  // Extract last name from first author
+  const firstAuthor = authors.split(",")[0].split(" and ")[0].trim();
+  const lastName = firstAuthor.split(" ").pop()?.toLowerCase() || "unknown";
+
+  // Get first 20 chars of title, replace special chars with _
+  const titleSlug = title
+    .slice(0, 20)
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .split("-")[0]; // Take first word
-  return `${slug}-${year}`;
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, ""); // Remove leading/trailing underscores
+
+  return `${lastName}-${year}-${titleSlug}`;
 }
 
 // ---------- Export ----------

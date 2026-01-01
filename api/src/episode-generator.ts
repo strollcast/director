@@ -118,15 +118,10 @@ export function validateApiKey(
 
 /**
  * Derive episode ID from episode name.
- * Converts "author-year-title" to "title-year".
+ * Episode name format is now: "lastname-year-title_slug"
+ * No conversion needed - episodeName IS the episodeId.
  */
 export function deriveEpisodeId(episodeName: string): string {
-  const parts = episodeName.split("-");
-  if (parts.length >= 3) {
-    const name = parts.slice(2).join("-");
-    const year = parts[1];
-    return `${name}-${year}`;
-  }
   return episodeName;
 }
 
