@@ -50,7 +50,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: site
-          command: pages deploy dist --project-name=strollcast
+          command: pages deploy dist --project-name=strollcast --branch=main
 
   deploy-worker:
     name: Deploy API Worker
