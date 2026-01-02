@@ -61,5 +61,6 @@ CF_ACCOUNT_ID = "24828d2a24b818aa2e994213d8a562c6"
 # - ELEVENLABS_API_KEY: For audio generation via ElevenLabs API
 # - INWORLD_API_KEY: For Inworld TTS via AIML API
 # - API_KEY: For authenticating POST /jobs requests (Bearer token)
+# - GITHUB_TOKEN: For pushing scripts to strollcast/scripts repo (PAT with public_repo scope)
 # - R2_ACCESS_KEY_ID: For generating presigned URLs (create at R2 > Manage R2 API Tokens)
 # - R2_SECRET_ACCESS_KEY: For generating presigned URLs

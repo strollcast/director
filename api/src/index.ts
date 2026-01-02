@@ -2,6 +2,7 @@ import { generateTranscript } from "./transcript";
 import { uploadTranscript } from "./audio";
 import { generateEpisode, type R2Credentials } from "./episode-generator";
 import { Container } from "@cloudflare/containers";
+import { checkScriptExists, pushScript, fetchScript, getScriptMetadata, type GitHubConfig } from "./github";
 
 /**
  * FFmpeg Container class for MP3 concatenation.
@@ -40,6 +41,7 @@ export interface Env {
   ELEVENLABS_API_KEY: string;
   INWORLD_API_KEY: string;
   API_KEY: string; // For authenticating POST /jobs requests
+  GITHUB_TOKEN: string; // GitHub PAT for strollcast/scripts repo
   // R2 credentials for presigned URLs
   R2_ACCESS_KEY_ID: string;
   R2_SECRET_ACCESS_KEY: string;
@@ -474,12 +476,24 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
         let vttSize: number | null = null;
         let vttUpdated: string | null = null;
 
-        // Check script
+        // Check script (GitHub first, R2 fallback)
         try {
-          const scriptHead = await env.R2.head(scriptPath);
-          if (scriptHead) {
-            scriptSize = scriptHead.size;
-            scriptUpdated = scriptHead.uploaded.toISOString();
+          const githubConfig: GitHubConfig = {
+            token: env.GITHUB_TOKEN,
+            owner: 'strollcast',
+            repo: 'scripts',
+          };
+          const metadata = await getScriptMetadata(episode.id, githubConfig);
+          if (metadata) {
+            scriptSize = metadata.size;
+            scriptUpdated = metadata.updated;
+          } else {
+            // Fall back to R2 for episodes not yet migrated
+            const scriptHead = await env.R2.head(scriptPath);
+            if (scriptHead) {
+              scriptSize = scriptHead.size;
+              scriptUpdated = scriptHead.uploaded.toISOString();
+            }
           }
         } catch {
           // File not found or error
@@ -581,22 +595,32 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
       )
       .run();
 
-    // Check if script exists in episodes folder
-    const scriptKey = `episodes/${episodeId}/script.md`;
-    const existingScript = await env.R2.head(scriptKey);
+    // Check if script exists (GitHub first, R2 fallback)
+    const githubConfig: GitHubConfig = {
+      token: env.GITHUB_TOKEN,
+      owner: 'strollcast',
+      repo: 'scripts',
+    };
+    const existsInGithub = await checkScriptExists(episodeId, githubConfig);
 
-    if (!existingScript) {
-      // No existing script found - need to regenerate from transcript
-      await env.DB.prepare(
-        `UPDATE jobs SET status = 'failed', error_message = 'No script found for episode. Full regeneration required.', updated_at = datetime('now') WHERE id = ?`
-      )
-        .bind(jobId)
-        .run();
+    if (!existsInGithub) {
+      // Fall back to R2 for episodes not yet migrated
+      const scriptKey = `episodes/${episodeId}/script.md`;
+      const existingScript = await env.R2.head(scriptKey);
 
-      return Response.json(
-        { error: "No script found for episode. Full regeneration required." },
-        { status: 400, headers: corsHeaders }
-      );
+      if (!existingScript) {
+        // No existing script found in GitHub or R2 - need to regenerate from transcript
+        await env.DB.prepare(
+          `UPDATE jobs SET status = 'failed', error_message = 'No script found for episode. Full regeneration required.', updated_at = datetime('now') WHERE id = ?`
+        )
+          .bind(jobId)
+          .run();
+
+        return Response.json(
+          { error: "No script found for episode. Full regeneration required." },
+          { status: 400, headers: corsHeaders }
+        );
+      }
     }
 
     // Update job with script URL
@@ -752,10 +776,17 @@ async function handleGenerateTranscript(jobId: string, env: Env): Promise<void> 
   );
   const scriptKey = `episodes/${episodeId}/script.md`;
 
-  // Check if script already exists in R2 (idempotency)
-  const existingScript = await env.R2.head(scriptKey);
-  if (existingScript) {
-    console.log(`Script already exists for episode ${episodeId}, skipping transcript generation`);
+  // GitHub configuration
+  const githubConfig: GitHubConfig = {
+    token: env.GITHUB_TOKEN,
+    owner: 'strollcast',
+    repo: 'scripts',
+  };
+
+  // Check if script already exists in GitHub (idempotency)
+  const existsInGithub = await checkScriptExists(episodeId, githubConfig);
+  if (existsInGithub) {
+    console.log(`Script already exists in GitHub for episode ${episodeId}, skipping transcript generation`);
     // Update job with episode_id if not set
     await env.DB.prepare(
       `UPDATE jobs SET episode_id = ?, updated_at = datetime('now') WHERE id = ? AND episode_id IS NULL`
@@ -784,11 +815,20 @@ async function handleGenerateTranscript(jobId: string, env: Env): Promise<void> 
 
   console.log(`Transcript generated for ${job.arxiv_id}, source: ${result.contentSource}`);
 
-  // Save script to R2 in episodes folder
-  await env.R2.put(scriptKey, scriptContent);
+  // Try to push script to GitHub first, fall back to R2 if it fails
+  let scriptUrl: string;
+  try {
+    await pushScript(episodeId, scriptContent, githubConfig);
+    scriptUrl = `https://raw.githubusercontent.com/strollcast/scripts/main/${episodeId}/script.md`;
+    console.log(`Script pushed to GitHub for ${episodeId}`);
+  } catch (error) {
+    // Fall back to R2 storage if GitHub push fails
+    console.warn(`GitHub push failed for ${episodeId}, using R2 fallback:`, error);
+    await env.R2.put(scriptKey, scriptContent);
+    scriptUrl = `https://released.strollcast.com/${scriptKey}`;
+  }
 
-  // Update job with script URL
-  const scriptUrl = `https://released.strollcast.com/${scriptKey}`;
+  // Update job with script URL (GitHub or R2)
   await env.DB.prepare(
     `UPDATE jobs SET script_url = ?, updated_at = datetime('now') WHERE id = ?`
   )
@@ -856,13 +896,25 @@ async function handleGenerateAudio(jobId: string, env: Env): Promise<void> {
     .bind(jobId)
     .run();
 
-  // Read script from R2 (stored in episodes folder)
-  const scriptKey = `episodes/${episodeId}/script.md`;
-  const scriptObject = await env.R2.get(scriptKey);
-  if (!scriptObject) {
-    throw new Error(`Script not found at ${scriptKey}`);
+  // Read script from GitHub (with R2 fallback for episodes not yet migrated)
+  const githubConfig: GitHubConfig = {
+    token: env.GITHUB_TOKEN,
+    owner: 'strollcast',
+    repo: 'scripts',
+  };
+
+  let scriptContent = await fetchScript(episodeId, githubConfig);
+
+  if (!scriptContent) {
+    // Fall back to R2 for episodes not yet migrated
+    console.log(`Script not in GitHub for ${episodeId}, trying R2...`);
+    const scriptKey = `episodes/${episodeId}/script.md`;
+    const scriptObject = await env.R2.get(scriptKey);
+    if (!scriptObject) {
+      throw new Error(`Script not found in GitHub or R2 for ${episodeId}`);
+    }
+    scriptContent = await scriptObject.text();
   }
-  const scriptContent = await scriptObject.text();
 
   // Episode name is now the same as episode ID
   const episodeName = episodeId;
