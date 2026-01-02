@@ -3,6 +3,7 @@ import { uploadTranscript } from "./audio";
 import { generateEpisode, type R2Credentials } from "./episode-generator";
 import { Container } from "@cloudflare/containers";
 import { checkScriptExists, pushScript, fetchScript, getScriptMetadata, type GitHubConfig } from "./github";
+import { migrateScriptsToGitHub } from "../scripts/migrate-scripts-to-github";
 
 /**
  * FFmpeg Container class for MP3 concatenation.
@@ -705,6 +706,55 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
       },
       { headers: corsHeaders }
     );
+  }
+
+  // POST /admin/migrate-scripts - Migrate all scripts from R2 to GitHub
+  if (path === "/admin/migrate-scripts" && request.method === "POST") {
+    // Verify API key
+    const authHeader = request.headers.get("Authorization");
+    const apiKey = authHeader?.replace("Bearer ", "");
+
+    if (!apiKey || apiKey !== env.API_KEY) {
+      return Response.json(
+        { error: "Unauthorized" },
+        { status: 401, headers: corsHeaders }
+      );
+    }
+
+    console.log('Starting script migration from R2 to GitHub...');
+
+    try {
+      const stats = await migrateScriptsToGitHub({
+        DB: env.DB,
+        R2: env.R2,
+        GITHUB_TOKEN: env.GITHUB_TOKEN,
+      });
+
+      console.log('Migration complete!');
+      console.log(`Total: ${stats.total}`);
+      console.log(`Migrated: ${stats.migrated}`);
+      console.log(`Skipped: ${stats.skipped}`);
+      console.log(`Failed: ${stats.failed}`);
+
+      if (stats.errors.length > 0) {
+        console.log('Errors:');
+        stats.errors.forEach(({ episodeId, error }) => {
+          console.log(`  - ${episodeId}: ${error}`);
+        });
+      }
+
+      return Response.json({
+        success: stats.failed === 0,
+        message: `Migration completed: ${stats.migrated} migrated, ${stats.skipped} skipped, ${stats.failed} failed`,
+        stats,
+      }, { headers: corsHeaders });
+    } catch (error) {
+      console.error('Migration failed:', error);
+      return Response.json({
+        success: false,
+        error: String(error),
+      }, { status: 500, headers: corsHeaders });
+    }
   }
 
   return Response.json(
