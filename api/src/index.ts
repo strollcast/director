@@ -9,6 +9,7 @@ import { migrateEpisodeIdsR2 } from "../scripts/migrate-episode-ids-r2";
 import { migrateEpisodeIdsGitHub } from "../scripts/migrate-episode-ids-github";
 import { migrateEpisodeIdsDatabase } from "../scripts/migrate-episode-ids-database";
 import { updateEpisodeUrls } from "../scripts/update-episode-urls";
+import { resolveScriptLocation } from "./script-resolver";
 
 /**
  * FFmpeg Container class for MP3 concatenation.
@@ -602,39 +603,27 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
       .run();
 
     // Check if script exists (GitHub first, R2 fallback)
-    const githubConfig: GitHubConfig = {
-      token: env.GITHUB_TOKEN,
-      owner: 'strollcast',
-      repo: 'scripts',
-    };
-    const existsInGithub = await checkScriptExists(episodeId, githubConfig);
+    const scriptLocation = await resolveScriptLocation(episodeId, env.GITHUB_TOKEN, env.R2);
 
-    if (!existsInGithub) {
-      // Fall back to R2 for episodes not yet migrated
-      const scriptKey = `episodes/${episodeId}/script.md`;
-      const existingScript = await env.R2.head(scriptKey);
+    if (!scriptLocation.found) {
+      // No existing script found in GitHub or R2 - need to regenerate from transcript
+      await env.DB.prepare(
+        `UPDATE jobs SET status = 'failed', error_message = 'No script found for episode. Full regeneration required.', updated_at = datetime('now') WHERE id = ?`
+      )
+        .bind(jobId)
+        .run();
 
-      if (!existingScript) {
-        // No existing script found in GitHub or R2 - need to regenerate from transcript
-        await env.DB.prepare(
-          `UPDATE jobs SET status = 'failed', error_message = 'No script found for episode. Full regeneration required.', updated_at = datetime('now') WHERE id = ?`
-        )
-          .bind(jobId)
-          .run();
-
-        return Response.json(
-          { error: "No script found for episode. Full regeneration required." },
-          { status: 400, headers: corsHeaders }
-        );
-      }
+      return Response.json(
+        { error: "No script found for episode. Full regeneration required." },
+        { status: 400, headers: corsHeaders }
+      );
     }
 
     // Update job with script URL
-    const scriptUrl = `https://released.strollcast.com/${scriptKey}`;
     await env.DB.prepare(
       `UPDATE jobs SET script_url = ?, updated_at = datetime('now') WHERE id = ?`
     )
-      .bind(scriptUrl, jobId)
+      .bind(scriptLocation.url, jobId)
       .run();
 
     // Queue directly to audio generation stage (skip transcript generation)
