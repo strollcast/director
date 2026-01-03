@@ -1,0 +1,503 @@
+---
+import AdminLayout from '../../components/AdminLayout.astro';
+import { getSession, ADMIN_GITHUB_USERNAME } from '../../lib/auth';
+
+const session = await getSession(Astro);
+
+// Redirect to login if not authenticated
+if (!session) {
+  return Astro.redirect('/login?redirect=/admin/episodes');
+}
+
+// Check if user is admin
+const username = (session.user as any)?.username;
+if (username !== ADMIN_GITHUB_USERNAME) {
+  return Astro.redirect('/');
+}
+---
+
+<AdminLayout title="Admin - Episodes" currentPage="episodes">
+  <div class="admin-header">
+    <h1>Episodes</h1>
+    <p class="subtitle">Manage podcast episodes</p>
+  </div>
+
+  <div id="episodes-list" class="episodes-list">
+    <div class="loading">Loading episodes...</div>
+  </div>
+</AdminLayout>
+
+<script>
+  import { formatRelativeDate, formatBytes, truncateTitle } from '../../lib/format';
+
+  interface EpisodeWithMeta {
+    id: string;
+    title: string;
+    authors: string;
+    year: number;
+    audioUrl: string;
+    transcriptUrl: string | null;
+    scriptSize: number | null;
+    scriptUpdated: string | null;
+    scriptUrl: string | null;
+    scriptSource: 'github' | 'r2' | null;
+    audioSize: number | null;
+    audioUpdated: string | null;
+    vttSize: number | null;
+    vttUpdated: string | null;
+    vttUrl: string | null;
+    submittedBy: string | null;
+  }
+
+  function hasAudio(ep: EpisodeWithMeta): boolean {
+    return ep.audioSize !== null && ep.audioSize > 0;
+  }
+
+  async function loadEpisodes() {
+    const list = document.getElementById('episodes-list') as HTMLElement;
+
+    try {
+      const response = await fetch('/api/admin/episodes');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to load episodes');
+      }
+
+      const episodes: EpisodeWithMeta[] = data.episodes || [];
+
+      if (episodes.length === 0) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <p>No episodes found.</p>
+          </div>
+        `;
+        return;
+      }
+
+      list.innerHTML = `
+        <table class="episodes-table">
+          <thead>
+            <tr>
+              <th class="col-title">Title</th>
+              <th class="col-year">Year</th>
+              <th class="col-requester">Requester</th>
+              <th class="col-file">Script</th>
+              <th class="col-file-audio">Audio</th>
+              <th class="col-file">VTT</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${episodes.map(ep => `
+              <tr data-id="${ep.id}">
+                <td class="col-title">
+                  <div class="title-cell">
+                    <span class="ep-title" title="${ep.title}">${truncateTitle(ep.title)}</span>
+                    <span class="ep-authors">${ep.authors}</span>
+                  </div>
+                </td>
+                <td class="col-year">${ep.year}</td>
+                <td class="col-requester">${ep.submittedBy || '-'}</td>
+                <td class="col-file">
+                  <div class="file-cell">
+                    ${ep.scriptUrl ? `
+                      <a href="${ep.scriptUrl}" target="_blank" rel="noopener noreferrer" class="file-link">
+                        <span class="file-size">${formatBytes(ep.scriptSize)}</span>
+                      </a>
+                    ` : `
+                      <span class="file-size">${formatBytes(ep.scriptSize)}</span>
+                    `}<br />
+                    <span class="file-date">${formatRelativeDate(ep.scriptUpdated)}</span>
+                  </div>
+                </td>
+                <td class="col-file-audio">
+                  <div class="audio-cell">
+                    <div class="file-info">
+                      ${ep.audioUrl && ep.audioSize ? `
+                        <a href="${ep.audioUrl}" target="_blank" rel="noopener noreferrer" class="file-link">
+                          <span class="file-size">${formatBytes(ep.audioSize)}</span>
+                        </a>
+                      ` : `
+                        <span class="file-size">${formatBytes(ep.audioSize)}</span>
+                      `}<br />
+                      <span class="file-date">${formatRelativeDate(ep.audioUpdated)}</span>
+                    </div>
+                    <div class="audio-actions">
+                      ${hasAudio(ep) ? `
+                        <button class="icon-btn btn-delete" title="Delete Audio" data-action="delete" data-id="${ep.id}" onclick="deleteAudio('${ep.id}')">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/>
+                            <path d="M10 11v6M14 11v6"/>
+                          </svg>
+                        </button>
+                      ` : `
+                        <button class="icon-btn btn-generate" title="Generate Audio" data-action="generate" data-id="${ep.id}" onclick="generateAudio('${ep.id}')">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0118.8-4.3M22 12.5a10 10 0 01-18.8 4.2"/>
+                          </svg>
+                        </button>
+                      `}
+                    </div>
+                  </div>
+                </td>
+                <td class="col-file">
+                  <div class="file-cell">
+                    ${ep.vttUrl && ep.vttSize ? `
+                      <a href="${ep.vttUrl}" target="_blank" rel="noopener noreferrer" class="file-link">
+                        <span class="file-size">${formatBytes(ep.vttSize)}</span>
+                      </a>
+                    ` : `
+                      <span class="file-size">${formatBytes(ep.vttSize)}</span>
+                    `}<br />
+                    <span class="file-date">${formatRelativeDate(ep.vttUpdated)}</span>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+
+    } catch (error) {
+      list.innerHTML = `
+        <div class="error-state">
+          <p>Failed to load episodes: ${error instanceof Error ? error.message : 'Unknown error'}</p>
+          <button onclick="loadEpisodes()" class="btn btn-secondary">Retry</button>
+        </div>
+      `;
+    }
+  }
+
+  async function generateAudio(episodeId: string) {
+    const btn = document.querySelector(`button[data-action="generate"][data-id="${episodeId}"]`) as HTMLButtonElement;
+    const originalTitle = btn.title;
+
+    btn.disabled = true;
+    btn.title = 'Queueing...';
+
+    try {
+      const response = await fetch(`/api/admin/episodes/${episodeId}/regenerate-audio`, {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate audio');
+      }
+
+      btn.title = 'Queued!';
+      btn.classList.add('btn-success');
+
+      setTimeout(() => {
+        loadEpisodes();
+      }, 2000);
+
+    } catch (error) {
+      btn.title = 'Failed';
+      btn.classList.add('btn-error');
+
+      setTimeout(() => {
+        btn.title = originalTitle;
+        btn.classList.remove('btn-error');
+        btn.disabled = false;
+      }, 3000);
+
+      console.error('Generation error:', error);
+    }
+  }
+
+  async function deleteAudio(episodeId: string) {
+    if (!confirm(`Delete audio for "${episodeId}"? This cannot be undone.`)) {
+      return;
+    }
+
+    const btn = document.querySelector(`button[data-action="delete"][data-id="${episodeId}"]`) as HTMLButtonElement;
+    const originalTitle = btn.title;
+
+    btn.disabled = true;
+    btn.title = 'Deleting...';
+
+    try {
+      const response = await fetch(`/api/admin/episodes/${episodeId}/delete-audio`, {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete audio');
+      }
+
+      btn.title = 'Deleted!';
+      btn.classList.add('btn-success');
+
+      // Reload to show updated state
+      setTimeout(() => {
+        loadEpisodes();
+      }, 1000);
+
+    } catch (error) {
+      btn.title = 'Failed';
+      btn.classList.add('btn-error');
+
+      setTimeout(() => {
+        btn.title = originalTitle;
+        btn.classList.remove('btn-error');
+        btn.disabled = false;
+      }, 3000);
+
+      console.error('Delete error:', error);
+    }
+  }
+
+  // Make functions available globally
+  (window as any).loadEpisodes = loadEpisodes;
+  (window as any).generateAudio = generateAudio;
+  (window as any).deleteAudio = deleteAudio;
+
+  // Initial load
+  loadEpisodes();
+</script>
+
+<style is:global>
+  .admin-header {
+    margin-bottom: 2rem;
+  }
+
+  .admin-header h1 {
+    margin-bottom: 0.5rem;
+  }
+
+  .subtitle {
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .episodes-list {
+    overflow-x: auto;
+  }
+
+  .loading, .empty-state, .error-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-secondary);
+  }
+
+  .error-state .btn {
+    margin-top: 1rem;
+  }
+
+  .episodes-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    border: 1px solid #52525b;
+  }
+
+  .episodes-table th,
+  .episodes-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border: 1px solid #52525b;
+  }
+
+  .episodes-table th {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .episodes-table tbody tr:hover {
+    background: var(--bg-card);
+  }
+
+  .col-title {
+    min-width: 250px;
+  }
+
+  .col-year {
+    width: 50px;
+    text-align: center;
+  }
+
+  .col-requester {
+    width: 100px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+
+  .col-file {
+    width: 90px;
+  }
+
+  .col-file-audio {
+    width: 140px;
+  }
+
+  .title-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .ep-title {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .ep-authors {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+  }
+
+  .file-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+
+  .audio-cell {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 44px;
+  }
+
+  .file-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .audio-actions {
+    display: flex;
+    gap: 0.25rem;
+    flex-shrink: 0;
+  }
+
+  .file-link {
+    text-decoration: none;
+    color: inherit;
+    transition: color 0.2s;
+  }
+
+  .file-link:hover {
+    color: var(--accent);
+  }
+
+  .file-link:hover .file-size {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+
+  .file-size {
+    color: var(--text-primary);
+    font-family: monospace;
+    font-size: 0.75rem;
+  }
+
+  .file-date {
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+  }
+
+  .icon-btn {
+    padding: 0.625rem;
+    border-radius: 6px;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    min-width: 36px;
+    min-height: 36px;
+  }
+
+  .icon-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .icon-btn.btn-generate {
+    color: var(--accent);
+  }
+
+  .icon-btn.btn-generate:hover:not(:disabled) {
+    background: rgba(124, 58, 237, 0.1);
+    color: var(--accent-hover);
+  }
+
+  .icon-btn.btn-delete {
+    color: #ef4444;
+  }
+
+  .icon-btn.btn-delete:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.1);
+  }
+
+  .icon-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .icon-btn.btn-success {
+    background: #22c55e !important;
+    color: white !important;
+  }
+
+  .icon-btn.btn-error {
+    background: #ef4444 !important;
+    color: white !important;
+  }
+
+  .btn-success {
+    background: #22c55e !important;
+    border-color: #22c55e !important;
+    color: white !important;
+  }
+
+  .btn-error {
+    background: #ef4444 !important;
+    border-color: #ef4444 !important;
+    color: white !important;
+  }
+
+  .btn-secondary {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+  }
+
+  .btn-secondary:hover {
+    background: var(--bg-secondary);
+  }
+
+  @media (max-width: 768px) {
+    .episodes-table {
+      font-size: 0.75rem;
+    }
+
+    .episodes-table th,
+    .episodes-table td {
+      padding: 0.5rem;
+    }
+
+    .col-title {
+      min-width: 200px;
+    }
+
+    .audio-cell {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>

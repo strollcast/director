@@ -1,0 +1,249 @@
+---
+import AdminLayout from '../../components/AdminLayout.astro';
+import { getSession, ADMIN_GITHUB_USERNAME } from '../../lib/auth';
+
+const session = await getSession(Astro);
+
+// Redirect to login if not authenticated
+if (!session) {
+  return Astro.redirect('/login?redirect=/admin/tools');
+}
+
+// Check if user is admin
+const username = (session.user as any)?.username;
+if (username !== ADMIN_GITHUB_USERNAME) {
+  return Astro.redirect('/');
+}
+---
+
+<AdminLayout title="Admin - Tools" currentPage="tools">
+  <div class="admin-header">
+    <h1>Tools</h1>
+    <p class="subtitle">Database and file management utilities</p>
+  </div>
+
+  <div id="status-message" class="status-message"></div>
+
+  <div class="tools-grid">
+    <div class="tool-card">
+      <h3>Verify Files</h3>
+      <p>Check database/R2 consistency for all published episodes. Reports episodes where database URLs point to missing R2 files.</p>
+      <button class="btn btn-primary" onclick="verifyFiles()">Verify Files</button>
+    </div>
+
+    <div class="tool-card">
+      <h3>Fix File Mismatches</h3>
+      <p>Unpublish episodes with missing audio files and clear VTT URLs for missing transcript files. This makes episodes ready for regeneration.</p>
+      <button class="btn btn-warning" onclick="fixFileMismatches()">Fix File Mismatches</button>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  async function verifyFiles() {
+    const statusEl = document.getElementById('status-message');
+    if (!statusEl) return;
+
+    statusEl.textContent = 'Verifying files...';
+    statusEl.className = 'status-message status-info';
+
+    try {
+      const response = await fetch('/api/admin/verify-files');
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to verify files');
+      }
+
+      if (data.mismatches === 0) {
+        statusEl.textContent = `✓ All ${data.total} episodes verified - no mismatches found`;
+        statusEl.className = 'status-message status-success';
+      } else {
+        statusEl.innerHTML = `⚠ Found ${data.mismatches} mismatch${data.mismatches !== 1 ? 'es' : ''} in ${data.total} episodes:<br/>${data.episodes.map((ep: any) =>
+          `${ep.episodeId}: audio ${ep.audioInR2 ? '✓' : '✗'}, VTT ${ep.vttInR2 ? '✓' : '✗'}`
+        ).join('<br/>')}`;
+        statusEl.className = 'status-message status-warning';
+      }
+
+      setTimeout(() => {
+        statusEl.textContent = '';
+        statusEl.className = 'status-message';
+      }, 10000);
+
+    } catch (error) {
+      statusEl.textContent = `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      statusEl.className = 'status-message status-error';
+
+      setTimeout(() => {
+        statusEl.textContent = '';
+        statusEl.className = 'status-message';
+      }, 5000);
+
+      console.error('Verify error:', error);
+    }
+  }
+
+  async function fixFileMismatches() {
+    const statusEl = document.getElementById('status-message');
+    if (!statusEl) return;
+
+    if (!confirm('This will unpublish episodes with missing audio files and clear VTT URLs for missing transcript files. Continue?')) {
+      return;
+    }
+
+    statusEl.textContent = 'Fixing file mismatches...';
+    statusEl.className = 'status-message status-info';
+
+    try {
+      const response = await fetch('/api/admin/fix-file-mismatches', {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fix mismatches');
+      }
+
+      if (data.fixed === 0) {
+        statusEl.textContent = '✓ No mismatches to fix';
+        statusEl.className = 'status-message status-success';
+      } else {
+        statusEl.textContent = `✓ Fixed ${data.fixed} episode${data.fixed !== 1 ? 's' : ''}: ${data.episodes.join(', ')}`;
+        statusEl.className = 'status-message status-success';
+      }
+
+      setTimeout(() => {
+        statusEl.textContent = '';
+        statusEl.className = 'status-message';
+      }, 10000);
+
+    } catch (error) {
+      statusEl.textContent = `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      statusEl.className = 'status-message status-error';
+
+      setTimeout(() => {
+        statusEl.textContent = '';
+        statusEl.className = 'status-message';
+      }, 5000);
+
+      console.error('Fix error:', error);
+    }
+  }
+
+  // Make functions available globally
+  (window as any).verifyFiles = verifyFiles;
+  (window as any).fixFileMismatches = fixFileMismatches;
+</script>
+
+<style is:global>
+  .admin-header {
+    margin-bottom: 2rem;
+  }
+
+  .admin-header h1 {
+    margin-bottom: 0.5rem;
+  }
+
+  .subtitle {
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .status-message {
+    padding: 1rem;
+    margin-bottom: 2rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    display: none;
+  }
+
+  .status-message:not(:empty) {
+    display: block;
+  }
+
+  .status-message.status-info {
+    background: rgba(124, 58, 237, 0.1);
+    color: var(--accent);
+    border: 1px solid rgba(124, 58, 237, 0.3);
+  }
+
+  .status-message.status-success {
+    background: rgba(34, 197, 94, 0.1);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+
+  .status-message.status-warning {
+    background: rgba(234, 179, 8, 0.1);
+    color: #eab308;
+    border: 1px solid rgba(234, 179, 8, 0.3);
+  }
+
+  .status-message.status-error {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  .tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .tool-card {
+    padding: 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-card);
+  }
+
+  .tool-card h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.125rem;
+  }
+
+  .tool-card p {
+    margin: 0 0 1rem 0;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .btn {
+    padding: 0.625rem 1.25rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: var(--accent-hover);
+  }
+
+  .btn-warning {
+    background: #eab308;
+    color: white;
+  }
+
+  .btn-warning:hover {
+    background: #ca8a04;
+  }
+
+  @media (max-width: 768px) {
+    .tools-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
