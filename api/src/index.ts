@@ -4,11 +4,6 @@ import { generateEpisode, generateVttOnly, type R2Credentials } from "./episode-
 import { Container } from "@cloudflare/containers";
 import { checkScriptExists, pushScript, fetchScript, getScriptMetadata, type GitHubConfig } from "./github";
 import { migrateScriptsToGitHub } from "../scripts/migrate-scripts-to-github";
-import { generateEpisodeIdMapping } from "../scripts/generate-episode-id-mapping";
-import { migrateEpisodeIdsR2 } from "../scripts/migrate-episode-ids-r2";
-import { migrateEpisodeIdsGitHub } from "../scripts/migrate-episode-ids-github";
-import { migrateEpisodeIdsDatabase } from "../scripts/migrate-episode-ids-database";
-import { updateEpisodeUrls } from "../scripts/update-episode-urls";
 import { resolveScriptLocation } from "./script-resolver";
 
 /**
@@ -795,79 +790,6 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
       return Response.json({
         success: false,
         error: String(error),
-      }, { status: 500, headers: corsHeaders });
-    }
-  }
-
-  // POST /admin/migrate-episode-ids - Migrate episode IDs to new format
-  if (path === "/admin/migrate-episode-ids" && request.method === "POST") {
-    // Verify API key
-    const authHeader = request.headers.get("Authorization");
-    const apiKey = authHeader?.replace("Bearer ", "");
-
-    if (!apiKey || apiKey !== env.API_KEY) {
-      return Response.json(
-        { error: "Unauthorized" },
-        { status: 401, headers: corsHeaders }
-      );
-    }
-
-    console.log('Starting episode ID migration...');
-    console.log('WARNING: This will update primary keys in the database and copy files in R2/GitHub');
-
-    try {
-      // Step 1: Generate mapping
-      console.log('\n=== Step 1/5: Generate Mapping ===');
-      const mapping = await generateEpisodeIdMapping(env.DB);
-      const mappingCount = Object.keys(mapping).length;
-
-      if (mappingCount === 0) {
-        return Response.json({
-          success: false,
-          error: 'No episodes found to migrate',
-        }, { status: 400, headers: corsHeaders });
-      }
-
-      console.log(`Generated mapping for ${mappingCount} episodes`);
-
-      // Step 2: Migrate R2 files (must happen before database update)
-      console.log('\n=== Step 2/5: Migrate R2 Files ===');
-      const r2Stats = await migrateEpisodeIdsR2(env.R2, mapping);
-
-      // Step 3: Migrate GitHub scripts
-      console.log('\n=== Step 3/5: Migrate GitHub Scripts ===');
-      const githubStats = await migrateEpisodeIdsGitHub(env.GITHUB_TOKEN, mapping);
-
-      // Step 4: Migrate database (updates primary keys)
-      console.log('\n=== Step 4/5: Migrate Database ===');
-      const dbStats = await migrateEpisodeIdsDatabase(env.DB, mapping);
-
-      // Step 5: Update URLs to point to new paths
-      console.log('\n=== Step 5/5: Update URLs ===');
-      const urlStats = await updateEpisodeUrls(env.DB, mapping);
-
-      console.log('\n=== Episode ID Migration Complete ===');
-
-      return Response.json({
-        success: true,
-        message: `Episode ID migration completed successfully`,
-        stats: {
-          mapping: {
-            total: mappingCount,
-            sample: Object.entries(mapping).slice(0, 5),
-          },
-          r2: r2Stats,
-          github: githubStats,
-          database: dbStats,
-          urls: urlStats,
-        },
-      }, { headers: corsHeaders });
-    } catch (error) {
-      console.error('Episode ID migration failed:', error);
-      return Response.json({
-        success: false,
-        error: String(error),
-        message: 'Migration failed. Check logs for details. Database may be in inconsistent state.',
       }, { status: 500, headers: corsHeaders });
     }
   }
