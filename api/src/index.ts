@@ -505,13 +505,19 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
         const baseResponse = toApiResponse(episode);
         const submittedBy = episode.submitted_by;
 
-        // Build R2 paths
-        const audioPath = episode.audio_url.replace("https://released.strollcast.com/", "");
-        const vttPath = episode.transcript_url?.replace("https://released.strollcast.com/", "");
+        // Use URLs from database
+        const audioUrl = episode.audio_url;
+        const vttUrl = episode.transcript_url;
+
+        // Build R2 paths from database URLs
+        const audioPath = audioUrl.replace("https://released.strollcast.com/", "");
+        const vttPath = vttUrl?.replace("https://released.strollcast.com/", "");
         const scriptPath = `episodes/${episode.id}/script.md`;
 
         let scriptSize: number | null = null;
         let scriptUpdated: string | null = null;
+        let scriptUrl: string | null = null;
+        let scriptSource: 'github' | 'r2' | null = null;
         let audioSize: number | null = null;
         let audioUpdated: string | null = null;
         let vttSize: number | null = null;
@@ -528,19 +534,23 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
           if (metadata) {
             scriptSize = metadata.size;
             scriptUpdated = metadata.updated;
+            scriptUrl = `https://github.com/strollcast/scripts/blob/main/${episode.id}/script.md`;
+            scriptSource = 'github';
           } else {
             // Fall back to R2 for episodes not yet migrated
             const scriptHead = await env.R2.head(scriptPath);
             if (scriptHead) {
               scriptSize = scriptHead.size;
               scriptUpdated = scriptHead.uploaded.toISOString();
+              scriptUrl = `https://released.strollcast.com/${scriptPath}`;
+              scriptSource = 'r2';
             }
           }
         } catch {
           // File not found or error
         }
 
-        // Check audio
+        // Check audio using database URL
         try {
           const audioHead = await env.R2.head(audioPath);
           if (audioHead) {
@@ -551,7 +561,7 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
           // File not found or error
         }
 
-        // Check VTT
+        // Check VTT using database URL
         if (vttPath) {
           try {
             const vttHead = await env.R2.head(vttPath);
@@ -568,10 +578,14 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
           ...baseResponse,
           scriptSize,
           scriptUpdated,
+          scriptUrl,
+          scriptSource,
           audioSize,
           audioUpdated,
+          audioUrl,  // From database
           vttSize,
           vttUpdated,
+          vttUrl,    // From database
           submittedBy,
         };
       })
