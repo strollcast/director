@@ -17,10 +17,10 @@ describe('parseScript', () => {
     const segments = parseScript(script);
 
     expect(segments).toHaveLength(4); // 3 speech + 1 pause
-    expect(segments[0]).toEqual({ speaker: 'ERIC', text: 'Welcome to the show!' });
-    expect(segments[1]).toEqual({ speaker: 'MAYA', text: 'Thanks for having me.' });
-    expect(segments[2]).toEqual({ speaker: 'PAUSE', text: null });
-    expect(segments[3]).toEqual({ speaker: 'ERIC', text: "Let's dive in." });
+    expect(segments[0]).toEqual({ speaker: 'ERIC', text: 'Welcome to the show!', vttText: 'Welcome to the show!' });
+    expect(segments[1]).toEqual({ speaker: 'MAYA', text: 'Thanks for having me.', vttText: 'Thanks for having me.' });
+    expect(segments[2]).toEqual({ speaker: 'PAUSE', text: null, vttText: null });
+    expect(segments[3]).toEqual({ speaker: 'ERIC', text: "Let's dive in.", vttText: "Let's dive in." });
   });
 
   it('removes markdown annotations', () => {
@@ -47,6 +47,24 @@ More random text
 
     expect(segments).toHaveLength(1);
     expect(segments[0].speaker).toBe('ERIC');
+  });
+
+  it('extracts link text for TTS and preserves markdown links for VTT', () => {
+    const script = `**ERIC:** Check out [FlashAttention](https://arxiv.org/abs/2307.08691) for more details.`;
+    const segments = parseScript(script);
+
+    expect(segments).toHaveLength(1);
+    expect(segments[0].text).toBe('Check out FlashAttention for more details.');
+    expect(segments[0].vttText).toBe('Check out [FlashAttention](https://arxiv.org/abs/2307.08691) for more details.');
+  });
+
+  it('handles multiple links in one line', () => {
+    const script = `**MAYA:** Compare [ZeRO](https://arxiv.org/abs/1910.02054) with [Megatron-LM](https://arxiv.org/abs/2104.04473) for training.`;
+    const segments = parseScript(script);
+
+    expect(segments).toHaveLength(1);
+    expect(segments[0].text).toBe('Compare ZeRO with Megatron-LM for training.');
+    expect(segments[0].vttText).toBe('Compare [ZeRO](https://arxiv.org/abs/1910.02054) with [Megatron-LM](https://arxiv.org/abs/2104.04473) for training.');
   });
 });
 

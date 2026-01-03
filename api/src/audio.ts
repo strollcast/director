@@ -14,7 +14,8 @@ const INWORLD_MODEL_ID = "inworld-tts-1";
 
 interface Segment {
   speaker: string;
-  text: string | null;
+  text: string | null;      // Text for TTS (links replaced with link text)
+  vttText: string | null;   // Text for VTT (original markdown links preserved)
 }
 
 /**
@@ -31,22 +32,27 @@ export function parseScript(scriptContent: string): Segment[] {
     const speakerMatch = trimmed.match(/\*\*([A-Z]+):\*\*\s*(.*)/);
     if (speakerMatch) {
       const speaker = speakerMatch[1];
-      let text = speakerMatch[2];
+      let rawText = speakerMatch[2];
 
-      // Clean up markdown and source annotations
-      text = text.replace(/\{\{[^}]+\}\}/g, ""); // Remove {{...}}
-      text = text.replace(/\*\*\[[^\]]*\]\*\*/g, ""); // Remove **[...]**
-      text = text.replace(/\[[^\]]*\]/g, ""); // Remove [...]
-      text = text.replace(/\*\*/g, "").replace(/\*/g, "");
-      text = text.replace(/\s+/g, " ").trim(); // Collapse multiple spaces
+      // Clean up markdown and source annotations (for both TTS and VTT)
+      let cleanText = rawText.replace(/\{\{[^}]+\}\}/g, ""); // Remove {{...}}
+      cleanText = cleanText.replace(/\*\*\[[^\]]*\]\*\*/g, ""); // Remove **[...]**
+      cleanText = cleanText.replace(/\*\*/g, "").replace(/\*/g, ""); // Remove bold/italic
+      cleanText = cleanText.replace(/\s+/g, " ").trim(); // Collapse multiple spaces
 
-      if (text && (speaker === "ERIC" || speaker === "MAYA")) {
-        segments.push({ speaker, text });
+      // For TTS: Replace markdown links [text](url) with just the text
+      let ttsText = cleanText.replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1");
+
+      // For VTT: Keep markdown links as-is
+      let vttText = cleanText;
+
+      if (ttsText && (speaker === "ERIC" || speaker === "MAYA")) {
+        segments.push({ speaker, text: ttsText, vttText });
       }
     }
     // Add pause for section headers
     else if (trimmed.startsWith("## [")) {
-      segments.push({ speaker: "PAUSE", text: null });
+      segments.push({ speaker: "PAUSE", text: null, vttText: null });
     }
   }
 

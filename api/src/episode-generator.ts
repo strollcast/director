@@ -30,12 +30,14 @@ const INWORLD_API_URL = "https://api.inworld.ai/tts/v1/voice";
 // Types
 interface Segment {
   speaker: string;
-  text: string | null;
+  text: string | null;      // Text for TTS (links replaced with link text)
+  vttText: string | null;   // Text for VTT (original markdown links preserved)
 }
 
 interface TimingInfo {
   speaker: string;
-  text: string;
+  text: string;      // Text for TTS (used for cache keys)
+  vttText: string;   // Text for VTT (with markdown links)
   start: number;
   end: number;
 }
@@ -462,6 +464,7 @@ export async function generateAudioSegments(
     timingInfo.push({
       speaker: segment.speaker,
       text: segment.text,
+      vttText: segment.vttText || segment.text,
       start: currentTime,
       end: currentTime + duration,
     });
@@ -615,7 +618,7 @@ export function generateWebVtt(timingInfo: TimingInfo[]): string {
 
     lines.push(String(cueNumber));
     lines.push(`${start} --> ${end}`);
-    lines.push(`<v ${speaker}>${segment.text}`);
+    lines.push(`<v ${speaker}>${segment.vttText}`);
     lines.push("");
 
     cueNumber++;

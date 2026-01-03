@@ -62,8 +62,8 @@ describe('deriveEpisodeId', () => {
 describe('generateWebVtt', () => {
   it('generates valid WebVTT format', () => {
     const timingInfo = [
-      { speaker: 'ERIC', text: 'Hello world', start: 0, end: 1.5 },
-      { speaker: 'MAYA', text: 'Welcome to the show', start: 1.5, end: 3.2 },
+      { speaker: 'ERIC', text: 'Hello world', vttText: 'Hello world', start: 0, end: 1.5 },
+      { speaker: 'MAYA', text: 'Welcome to the show', vttText: 'Welcome to the show', start: 1.5, end: 3.2 },
     ];
 
     const vtt = generateWebVtt(timingInfo);
@@ -77,9 +77,9 @@ describe('generateWebVtt', () => {
 
   it('numbers cues sequentially', () => {
     const timingInfo = [
-      { speaker: 'ERIC', text: 'First', start: 0, end: 1 },
-      { speaker: 'MAYA', text: 'Second', start: 1, end: 2 },
-      { speaker: 'ERIC', text: 'Third', start: 2, end: 3 },
+      { speaker: 'ERIC', text: 'First', vttText: 'First', start: 0, end: 1 },
+      { speaker: 'MAYA', text: 'Second', vttText: 'Second', start: 1, end: 2 },
+      { speaker: 'ERIC', text: 'Third', vttText: 'Third', start: 2, end: 3 },
     ];
 
     const vtt = generateWebVtt(timingInfo);
@@ -92,9 +92,9 @@ describe('generateWebVtt', () => {
 
   it('skips PAUSE segments', () => {
     const timingInfo = [
-      { speaker: 'ERIC', text: 'Before pause', start: 0, end: 1 },
-      { speaker: 'PAUSE', text: '', start: 1, end: 1.8 },
-      { speaker: 'MAYA', text: 'After pause', start: 1.8, end: 3 },
+      { speaker: 'ERIC', text: 'Before pause', vttText: 'Before pause', start: 0, end: 1 },
+      { speaker: 'PAUSE', text: '', vttText: '', start: 1, end: 1.8 },
+      { speaker: 'MAYA', text: 'After pause', vttText: 'After pause', start: 1.8, end: 3 },
     ];
 
     const vtt = generateWebVtt(timingInfo);
@@ -106,7 +106,7 @@ describe('generateWebVtt', () => {
 
   it('handles hour-long timestamps', () => {
     const timingInfo = [
-      { speaker: 'ERIC', text: 'Long episode', start: 3665.5, end: 3670.2 },
+      { speaker: 'ERIC', text: 'Long episode', vttText: 'Long episode', start: 3665.5, end: 3670.2 },
     ];
 
     const vtt = generateWebVtt(timingInfo);
@@ -119,6 +119,22 @@ describe('generateWebVtt', () => {
     const vtt = generateWebVtt([]);
 
     expect(vtt).toBe('WEBVTT\n');
+  });
+
+  it('preserves markdown links in VTT text', () => {
+    const timingInfo = [
+      {
+        speaker: 'ERIC',
+        text: 'Check out FlashAttention for details',  // TTS text without link
+        vttText: 'Check out [FlashAttention](https://arxiv.org) for details',  // VTT with link
+        start: 0,
+        end: 2
+      },
+    ];
+
+    const vtt = generateWebVtt(timingInfo);
+
+    expect(vtt).toContain('<v Eric>Check out [FlashAttention](https://arxiv.org) for details');
   });
 });
 
