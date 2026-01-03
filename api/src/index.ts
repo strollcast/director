@@ -745,6 +745,130 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
     );
   }
 
+  // GET /admin/verify-files - Check database/R2 consistency
+  if (path === "/admin/verify-files" && request.method === "GET") {
+    // Verify API key
+    const authHeader = request.headers.get("Authorization");
+    const apiKey = authHeader?.replace("Bearer ", "");
+
+    if (!apiKey || apiKey !== env.API_KEY) {
+      return Response.json(
+        { error: "Unauthorized" },
+        { status: 401, headers: corsHeaders }
+      );
+    }
+
+    // Get all episodes
+    const { results: episodes } = await env.DB.prepare(
+      `SELECT id, audio_url, transcript_url FROM episodes ORDER BY id`
+    ).all<{ id: string; audio_url: string; transcript_url: string | null }>();
+
+    const mismatches: Array<{
+      episodeId: string;
+      audioInDb: boolean;
+      audioInR2: boolean;
+      vttInDb: boolean;
+      vttInR2: boolean;
+    }> = [];
+
+    // Check each episode
+    for (const ep of episodes) {
+      const audioPath = ep.audio_url.replace("https://released.strollcast.com/", "");
+      const vttPath = ep.transcript_url?.replace("https://released.strollcast.com/", "");
+
+      const audioInR2 = await env.R2.head(audioPath);
+      const vttInR2 = vttPath ? await env.R2.head(vttPath) : null;
+
+      // Report if there's a mismatch (URL in DB but file not in R2)
+      if (!audioInR2 || (ep.transcript_url && !vttInR2)) {
+        mismatches.push({
+          episodeId: ep.id,
+          audioInDb: true,
+          audioInR2: !!audioInR2,
+          vttInDb: !!ep.transcript_url,
+          vttInR2: !!vttInR2,
+        });
+      }
+    }
+
+    return Response.json(
+      {
+        total: episodes.length,
+        mismatches: mismatches.length,
+        episodes: mismatches,
+      },
+      { headers: corsHeaders }
+    );
+  }
+
+  // POST /admin/fix-file-mismatches - Clear database URLs for episodes with missing R2 files
+  if (path === "/admin/fix-file-mismatches" && request.method === "POST") {
+    // Verify API key
+    const authHeader = request.headers.get("Authorization");
+    const apiKey = authHeader?.replace("Bearer ", "");
+
+    if (!apiKey || apiKey !== env.API_KEY) {
+      return Response.json(
+        { error: "Unauthorized" },
+        { status: 401, headers: corsHeaders }
+      );
+    }
+
+    // Get all episodes
+    const { results: episodes } = await env.DB.prepare(
+      `SELECT id, audio_url, transcript_url FROM episodes ORDER BY id`
+    ).all<{ id: string; audio_url: string; transcript_url: string | null }>();
+
+    const fixed: string[] = [];
+
+    // Check each episode and clear URLs if files are missing
+    for (const ep of episodes) {
+      const audioPath = ep.audio_url.replace("https://released.strollcast.com/", "");
+      const vttPath = ep.transcript_url?.replace("https://released.strollcast.com/", "");
+
+      const audioInR2 = await env.R2.head(audioPath);
+      const vttInR2 = vttPath ? await env.R2.head(vttPath) : null;
+
+      let needsUpdate = false;
+      let newAudioUrl = ep.audio_url;
+      let newVttUrl = ep.transcript_url;
+
+      // If audio URL is set but file is missing in R2, clear it
+      if (!audioInR2) {
+        console.log(`Clearing audio_url for ${ep.id} (file not found in R2)`);
+        newAudioUrl = `https://released.strollcast.com/episodes/${ep.id}/${ep.id}.mp3`;
+        needsUpdate = true;
+      }
+
+      // If VTT URL is set but file is missing in R2, clear it
+      if (ep.transcript_url && !vttInR2) {
+        console.log(`Clearing transcript_url for ${ep.id} (file not found in R2)`);
+        newVttUrl = null;
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
+        await env.DB.prepare(
+          `UPDATE episodes
+           SET audio_url = ?,
+               transcript_url = ?,
+               updated_at = datetime('now')
+           WHERE id = ?`
+        ).bind(newAudioUrl, newVttUrl, ep.id).run();
+        fixed.push(ep.id);
+      }
+    }
+
+    return Response.json(
+      {
+        message: "Fixed database/R2 mismatches",
+        fixed: fixed.length,
+        episodes: fixed,
+      },
+      { headers: corsHeaders }
+    );
+  }
+
   // POST /admin/migrate-scripts - Migrate all scripts from R2 to GitHub
   if (path === "/admin/migrate-scripts" && request.method === "POST") {
     // Verify API key
