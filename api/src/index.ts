@@ -977,11 +977,12 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
         )
         .run();
 
-      // Queue the job
+      // Queue the job for audio generation (script already exists)
       await env.JOBS_QUEUE.send({
-        jobId,
-        episodeId,
-      });
+        job_id: jobId,
+        stage: "generate_audio",
+        attempt: 1,
+      } as QueueMessage);
 
       console.log(`Created episode ${episodeId} and queued job ${jobId}`);
 
