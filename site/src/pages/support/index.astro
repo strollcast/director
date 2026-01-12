@@ -1,0 +1,135 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Support - Strollcast">
+  <header>
+    <h1>Support</h1>
+    <p class="subtitle">Get help using Strollcast</p>
+  </header>
+
+  <section class="content">
+    <div class="support-grid">
+      <a href="/support/android" class="support-card">
+        <span class="card-icon">📱</span>
+        <div class="card-content">
+          <h2>Android App</h2>
+          <p>Voice commands, playback controls, and troubleshooting for the Android app</p>
+          <span class="card-arrow">→</span>
+        </div>
+      </a>
+
+      <div class="support-card disabled">
+        <span class="card-icon">🍎</span>
+        <div class="card-content">
+          <h2>iOS App</h2>
+          <p>Coming soon</p>
+        </div>
+      </div>
+
+      <a href="https://github.com/strollcast/StrollcastApp/issues" target="_blank" rel="noopener" class="support-card">
+        <span class="card-icon">💬</span>
+        <div class="card-content">
+          <h2>Report an Issue</h2>
+          <p>Found a bug or have a feature request? Let us know on GitHub</p>
+          <span class="card-arrow">↗</span>
+        </div>
+      </a>
+    </div>
+  </section>
+</Layout>
+
+<style>
+  header {
+    margin-bottom: 3rem;
+  }
+
+  .subtitle {
+    font-size: 1.25rem;
+    color: var(--text-secondary);
+  }
+
+  .content {
+    max-width: 1000px;
+  }
+
+  .support-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+  }
+
+  .support-card {
+    display: flex;
+    gap: 1.5rem;
+    padding: 2rem;
+    background: var(--bg-card);
+    border-radius: 12px;
+    border: 1px solid transparent;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s ease;
+  }
+
+  .support-card:not(.disabled):hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .support-card.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .card-icon {
+    font-size: 2.5rem;
+    flex-shrink: 0;
+  }
+
+  .card-content {
+    flex: 1;
+    position: relative;
+  }
+
+  .card-content h2 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.25rem;
+    color: var(--text-primary);
+  }
+
+  .card-content p {
+    margin: 0;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .card-arrow {
+    position: absolute;
+    right: 0;
+    top: 0;
+    font-size: 1.5rem;
+    color: var(--accent);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .support-card:not(.disabled):hover .card-arrow {
+    opacity: 1;
+  }
+
+  @media (max-width: 768px) {
+    .support-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .support-card {
+      padding: 1.5rem;
+    }
+
+    .card-icon {
+      font-size: 2rem;
+    }
+  }
+</style>

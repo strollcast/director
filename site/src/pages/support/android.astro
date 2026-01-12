@@ -1,0 +1,266 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Android Support - Strollcast">
+  <header>
+    <h1>Android App Support</h1>
+    <p class="subtitle">Get help using the Strollcast Android app</p>
+  </header>
+
+  <section class="content">
+    <h2>Voice Commands</h2>
+    <p>
+      The Strollcast Android app supports hands-free voice control for playback. You can use voice commands to pause, play, skip forward/backward, and check what's currently playing.
+    </p>
+
+    <div class="important-note">
+      <span class="note-icon">⚠️</span>
+      <div>
+        <strong>Important: Google Assistant Required</strong>
+        <p>
+          Voice commands work with <strong>Google Assistant</strong>, not Google Gemini. If Gemini is your default assistant, voice commands will not work. You need to switch back to Google Assistant to use voice control features.
+        </p>
+      </div>
+    </div>
+
+    <h3>Supported Voice Commands</h3>
+    <div class="command-list">
+      <div class="command">
+        <code>"Hey Google, pause in Strollcast"</code>
+        <span>Pause playback</span>
+      </div>
+      <div class="command">
+        <code>"Hey Google, play in Strollcast"</code>
+        <span>Resume playback</span>
+      </div>
+      <div class="command">
+        <code>"Hey Google, skip forward 15 seconds in Strollcast"</code>
+        <span>Skip ahead</span>
+      </div>
+      <div class="command">
+        <code>"Hey Google, skip backward 15 seconds in Strollcast"</code>
+        <span>Go back</span>
+      </div>
+      <div class="command">
+        <code>"Hey Google, what's playing in Strollcast?"</code>
+        <span>Show current episode info</span>
+      </div>
+    </div>
+
+    <h2>How to Switch from Gemini to Google Assistant</h2>
+    <p>
+      If Google Gemini is your default assistant, follow these steps to switch back to Google Assistant:
+    </p>
+
+    <h3>Method 1: Through the Gemini App</h3>
+    <ol>
+      <li>Open the <strong>Gemini app</strong> on your Android phone</li>
+      <li>Tap your <strong>profile photo</strong> or initial at the top right</li>
+      <li>Tap <strong>Settings</strong></li>
+      <li>Scroll down and tap <strong>"Digital assistants from Google"</strong></li>
+      <li>Select <strong>Google Assistant</strong></li>
+      <li>Confirm the change</li>
+    </ol>
+
+    <h3>Method 2: Through Android Settings</h3>
+    <ol>
+      <li>Open your Android <strong>Settings</strong></li>
+      <li>Go to <strong>Google</strong> or <strong>Google Services</strong></li>
+      <li>Tap <strong>All services</strong></li>
+      <li>Tap <strong>Search, Assistant, and Voice</strong></li>
+      <li>Tap <strong>Gemini</strong></li>
+      <li>Tap <strong>Digital Assistants from Google</strong></li>
+      <li>Select <strong>Google Assistant</strong> as the default option</li>
+      <li>Confirm the change</li>
+    </ol>
+
+    <h3>Verification</h3>
+    <p>
+      After switching, test that Google Assistant is active:
+    </p>
+    <ul>
+      <li>Say "Hey, Google" or hold down the power button</li>
+      <li>You should see <strong>Google Assistant</strong> interface (not Gemini)</li>
+      <li>Try a voice command: "Hey Google, pause in Strollcast" while playing</li>
+    </ul>
+
+    <div class="tip">
+      <span class="tip-icon">💡</span>
+      <div>
+        <strong>Tip</strong>
+        <p>
+          You can still use Gemini by opening the Gemini app directly. Switching your default assistant only affects voice activation and hardware shortcuts.
+        </p>
+      </div>
+    </div>
+
+    <h2>Troubleshooting</h2>
+
+    <h3>Voice commands still not working?</h3>
+    <ul>
+      <li><strong>Check that Strollcast is playing</strong> — Voice commands only work when audio is actively playing</li>
+      <li><strong>Verify Google Assistant</strong> — Make sure you're using "Hey Google" and it opens Google Assistant, not Gemini</li>
+      <li><strong>Include the app name</strong> — Always say "in Strollcast" at the end of commands</li>
+      <li><strong>Check notification controls</strong> — If you can pause/play from the notification, the media session is working correctly</li>
+    </ul>
+
+    <h3>App crashes or doesn't load episodes</h3>
+    <ul>
+      <li><strong>Check your internet connection</strong> — Episodes need to be downloaded or streamed</li>
+      <li><strong>Clear app cache</strong> — Settings → Apps → Strollcast → Storage → Clear Cache</li>
+      <li><strong>Update the app</strong> — Make sure you have the latest version</li>
+    </ul>
+
+    <h2>More Help</h2>
+    <p>
+      For additional support or to report issues, visit our <a href="https://github.com/strollcast/StrollcastApp/issues" target="_blank" rel="noopener">GitHub Issues</a> page.
+    </p>
+  </section>
+</Layout>
+
+<style>
+  header {
+    margin-bottom: 3rem;
+  }
+
+  .subtitle {
+    font-size: 1.25rem;
+    color: var(--text-secondary);
+  }
+
+  .content {
+    max-width: 800px;
+  }
+
+  .content h2 {
+    margin-top: 3rem;
+  }
+
+  .content h2:first-of-type {
+    margin-top: 0;
+  }
+
+  .content h3 {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  ol, ul {
+    margin: 1rem 0;
+    padding-left: 1.5rem;
+  }
+
+  ol li, ul li {
+    margin-bottom: 0.75rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  ul {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  ul li {
+    position: relative;
+    padding-left: 1.5rem;
+  }
+
+  ul li::before {
+    content: "→";
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+  }
+
+  .important-note {
+    display: flex;
+    gap: 1rem;
+    padding: 1.5rem;
+    margin: 2rem 0;
+    background: #fff8e1;
+    border-left: 4px solid #ffc107;
+    border-radius: 8px;
+  }
+
+  .note-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+
+  .important-note strong {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #333;
+  }
+
+  .important-note p {
+    margin: 0;
+    color: #666;
+    line-height: 1.6;
+  }
+
+  .command-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin: 1.5rem 0;
+  }
+
+  .command {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    background: var(--bg-card);
+    border-radius: 8px;
+  }
+
+  .command code {
+    color: var(--accent);
+    font-size: 0.95rem;
+  }
+
+  .command span {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+  }
+
+  .tip {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    margin: 2rem 0;
+    background: var(--bg-card);
+    border-radius: 8px;
+  }
+
+  .tip-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+
+  .tip strong {
+    display: block;
+    margin-bottom: 0.25rem;
+    color: var(--text-primary);
+  }
+
+  .tip p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+  }
+
+  @media (max-width: 640px) {
+    .command {
+      padding: 0.75rem;
+    }
+
+    .important-note {
+      flex-direction: column;
+      padding: 1rem;
+    }
+  }
+</style>
