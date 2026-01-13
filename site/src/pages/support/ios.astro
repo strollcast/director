@@ -1,0 +1,220 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="iOS Support - Strollcast">
+  <header>
+    <h1>iOS App Support</h1>
+    <p class="subtitle">Get help using the Strollcast iOS app</p>
+  </header>
+
+  <section class="content">
+    <h2>Siri Voice Commands</h2>
+    <p>
+      The Strollcast iOS app supports hands-free voice control through Siri. You can use Siri Shortcuts to pause, play, skip, navigate to references, and more.
+    </p>
+
+    <h3>Supported Siri Commands</h3>
+    <div class="command-list">
+      <div class="command">
+        <code>"Hey Siri, pause Strollcast"</code>
+        <span>Pause playback</span>
+      </div>
+      <div class="command">
+        <code>"Hey Siri, resume Strollcast"</code>
+        <span>Resume playback</span>
+      </div>
+      <div class="command">
+        <code>"Hey Siri, go back in Strollcast"</code>
+        <span>Skip backward 30 seconds</span>
+      </div>
+      <div class="command">
+        <code>"Hey Siri, go to reference in Strollcast"</code>
+        <span>Jump to referenced episode from transcript</span>
+      </div>
+      <div class="command">
+        <code>"Hey Siri, play previous in Strollcast"</code>
+        <span>Go back to previous episode</span>
+      </div>
+      <div class="command">
+        <code>"Hey Siri, record note in Strollcast"</code>
+        <span>Record a 15-second voice note</span>
+      </div>
+    </div>
+
+    <h2>Taking Notes</h2>
+    <p>
+      The Strollcast app allows you to take timestamped notes while listening to episodes. Notes are saved with the exact playback position and can be synced to your Zotero library.
+    </p>
+    <h3>How to Take Notes</h3>
+    <ol>
+      <li>While playing an episode, tap the <strong>Notes</strong> tab at the bottom</li>
+      <li>Tap the <strong>+ button</strong> to create a new note</li>
+      <li>Type your note and tap <strong>Save</strong></li>
+      <li>The note is saved with the current playback timestamp</li>
+    </ol>
+    <h3>Voice Note Recording</h3>
+    <p>
+      You can also record voice notes using Siri:
+    </p>
+    <ol>
+      <li>Say <strong>"Hey Siri, record note in Strollcast"</strong></li>
+      <li>The playback pauses and recording starts automatically</li>
+      <li>Speak your note (up to 15 seconds)</li>
+      <li>The recording is saved and transcribed</li>
+    </ol>
+    <h3>Viewing and Managing Notes</h3>
+    <ul>
+      <li><strong>Tap any note</strong> to jump back to that moment in the episode</li>
+      <li><strong>Swipe left on a note</strong> to delete it</li>
+      <li><strong>Notes are organized by episode</strong> — Switch between episodes in the Notes tab</li>
+    </ul>
+
+    <h2>Zotero Integration</h2>
+    <p>
+      Strollcast can automatically sync episodes and notes to your Zotero library, making it easy to integrate podcast notes with your research workflow.
+    </p>
+    <h3>Setting Up Zotero</h3>
+    <ol>
+      <li>Go to <strong>Settings</strong> tab in the app</li>
+      <li>Tap <strong>Zotero Integration</strong></li>
+      <li>Enter your <strong>Zotero API Key</strong> (get it from <a href="https://www.zotero.org/settings/keys" target="_blank" rel="noopener">zotero.org/settings/keys</a>)</li>
+      <li>Tap <strong>Save</strong></li>
+    </ol>
+    <h3>How It Works</h3>
+    <ul>
+      <li>When you play an episode, it's automatically added to your Zotero library</li>
+      <li>Paper metadata (title, authors, year) is included</li>
+      <li>Your timestamped notes are synced as child items</li>
+      <li>Notes include the playback timestamp for easy reference</li>
+    </ul>
+
+    <h2>Clickable Transcript Links</h2>
+    <p>
+      Some episodes include interactive transcripts with clickable links to referenced episodes or papers. When you see a link in the transcript, you can tap it to navigate directly to the referenced content.
+    </p>
+    <h3>How to Use Transcript Links</h3>
+    <ol>
+      <li>While playing an episode, scroll through the transcript (if available)</li>
+      <li>Links appear as <strong>blue underlined text</strong> in the transcript</li>
+      <li><strong>Tap any link</strong> to open the referenced episode or external resource</li>
+      <li>For episode references, the app will automatically load and start playing the referenced episode</li>
+    </ol>
+
+    <h2>Troubleshooting</h2>
+
+    <h3>Siri commands not working?</h3>
+    <ul>
+      <li><strong>Make sure Siri is enabled</strong> — Settings → Siri & Search → Enable Siri</li>
+      <li><strong>Say "Strollcast" clearly</strong> — The app name must be included in the command</li>
+      <li><strong>Check Shortcuts permissions</strong> — Settings → Strollcast → Siri & Search</li>
+    </ul>
+
+    <h3>App crashes or doesn't load episodes</h3>
+    <ul>
+      <li><strong>Check your internet connection</strong> — Episodes need to be downloaded or streamed</li>
+      <li><strong>Restart the app</strong> — Force quit and reopen</li>
+      <li><strong>Update the app</strong> — Make sure you have the latest version from TestFlight</li>
+    </ul>
+
+    <h3>Zotero sync not working?</h3>
+    <ul>
+      <li><strong>Verify API key</strong> — Make sure you copied the full key from Zotero</li>
+      <li><strong>Check Zotero library</strong> — Visit zotero.org to verify items were added</li>
+      <li><strong>Check internet connection</strong> — Syncing requires an active connection</li>
+    </ul>
+
+    <h2>More Help</h2>
+    <p>
+      For additional support or to report issues, visit our <a href="https://github.com/strollcast/StrollcastApp/issues" target="_blank" rel="noopener">GitHub Issues</a> page.
+    </p>
+  </section>
+</Layout>
+
+<style>
+  header {
+    margin-bottom: 3rem;
+  }
+
+  .subtitle {
+    font-size: 1.25rem;
+    color: var(--text-secondary);
+  }
+
+  .content {
+    max-width: 800px;
+  }
+
+  .content h2 {
+    margin-top: 3rem;
+  }
+
+  .content h2:first-of-type {
+    margin-top: 0;
+  }
+
+  .content h3 {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  ol, ul {
+    margin: 1rem 0;
+    padding-left: 1.5rem;
+  }
+
+  ol li, ul li {
+    margin-bottom: 0.75rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  ul {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  ul li {
+    position: relative;
+    padding-left: 1.5rem;
+  }
+
+  ul li::before {
+    content: "→";
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+  }
+
+  .command-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin: 1.5rem 0;
+  }
+
+  .command {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    background: var(--bg-card);
+    border-radius: 8px;
+  }
+
+  .command code {
+    color: var(--accent);
+    font-size: 0.95rem;
+  }
+
+  .command span {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+  }
+
+  @media (max-width: 640px) {
+    .command {
+      padding: 0.75rem;
+    }
+  }
+</style>

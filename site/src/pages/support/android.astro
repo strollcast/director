@@ -9,6 +9,16 @@ import Layout from '../../layouts/Layout.astro';
   </header>
 
   <section class="content">
+    <div class="warning-note">
+      <span class="note-icon">⚠️</span>
+      <div>
+        <strong>Note: Voice Commands Are Unreliable</strong>
+        <p>
+          Google Assistant voice recognition for custom app names is inconsistent and may not work reliably. The app name "Stroll Cast" is often misheard. We're working on improving this, but for now, use the on-screen controls or notification controls for a better experience.
+        </p>
+      </div>
+    </div>
+
     <h2>Voice Commands</h2>
     <p>
       The Strollcast Android app supports hands-free voice control for playback. You can use voice commands to pause, play, skip forward/backward, and check what's currently playing.
@@ -120,6 +130,36 @@ import Layout from '../../layouts/Layout.astro';
       <li><strong>Update the app</strong> — Make sure you have the latest version</li>
     </ul>
 
+    <h2>Taking Notes</h2>
+    <p>
+      The Strollcast app allows you to take timestamped notes while listening to episodes. Notes are saved with the exact playback position, making it easy to return to important moments later.
+    </p>
+    <h3>How to Take Notes</h3>
+    <ol>
+      <li>While playing an episode, tap the <strong>Notes</strong> tab at the bottom</li>
+      <li>Tap the <strong>+ button</strong> to create a new note</li>
+      <li>Type your note and tap <strong>Save</strong></li>
+      <li>The note is saved with the current playback timestamp</li>
+    </ol>
+    <h3>Viewing and Managing Notes</h3>
+    <ul>
+      <li><strong>Tap any note</strong> to jump back to that moment in the episode</li>
+      <li><strong>Swipe left on a note</strong> to delete it</li>
+      <li><strong>Notes are organized by episode</strong> — Switch between episodes in the Notes tab</li>
+    </ul>
+
+    <h2>Clickable Transcript Links</h2>
+    <p>
+      Some episodes include interactive transcripts with clickable links to referenced episodes or papers. When you see a link in the transcript, you can tap it to navigate directly to the referenced content.
+    </p>
+    <h3>How to Use Transcript Links</h3>
+    <ol>
+      <li>While playing an episode, scroll through the transcript (if available)</li>
+      <li>Links appear as <strong>blue underlined text</strong> in the transcript</li>
+      <li><strong>Tap any link</strong> to open the referenced episode or external resource</li>
+      <li>For episode references, the app will automatically load and start playing the referenced episode</li>
+    </ol>
+
     <h2>More Help</h2>
     <p>
       For additional support or to report issues, visit our <a href="https://github.com/strollcast/StrollcastApp/issues" target="_blank" rel="noopener">GitHub Issues</a> page.
@@ -204,6 +244,28 @@ import Layout from '../../layouts/Layout.astro';
   }
 
   .important-note p {
+    margin: 0;
+    color: #666;
+    line-height: 1.6;
+  }
+
+  .warning-note {
+    display: flex;
+    gap: 1rem;
+    padding: 1.5rem;
+    margin: 2rem 0;
+    background: #ffebee;
+    border-left: 4px solid #f44336;
+    border-radius: 8px;
+  }
+
+  .warning-note strong {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #333;
+  }
+
+  .warning-note p {
     margin: 0;
     color: #666;
     line-height: 1.6;
