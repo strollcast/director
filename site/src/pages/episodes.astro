@@ -2,29 +2,25 @@
 import Layout from '../layouts/Layout.astro';
 ---
 
-<Layout title="Episodes">
-  <header class="hero">
-    <h1>Stro🚶cast</h1>
-    <p class="tagline">Listen to research papers while you stroll.</p>
+<Layout title="All Episodes">
+  <header>
+    <h1>All Episodes</h1>
+    <p class="subtitle">Browse and search through our complete podcast library</p>
   </header>
 
-  <section class="intro">
-    <p>
-      Strollcast transforms dense academic papers into engaging audio podcasts.
-      Inspired by <a href="https://notebooklm.google/" target="_blank" rel="noopener noreferrer">Google's NotebookLM</a>,
-      each episode features a conversational format with two hosts breaking down
-      complex concepts into accessible explanations—perfect for walks, commutes,
-      or any time you're on the move.
-    </p>
-  </section>
-
   <section class="episodes">
-    <h2>Recent Episodes</h2>
+    <div class="search-container">
+      <input
+        type="search"
+        id="search-input"
+        class="search-input"
+        placeholder="Search episodes by title or abstract..."
+        autocomplete="off"
+      />
+      <div id="search-status" class="search-status"></div>
+    </div>
     <div id="episode-grid" class="episode-grid">
       <div class="loading">Loading episodes...</div>
-    </div>
-    <div class="view-all-container">
-      <a href="/episodes" class="view-all-link">View all episodes →</a>
     </div>
   </section>
 </Layout>
@@ -42,26 +38,49 @@ import Layout from '../layouts/Layout.astro';
     topics: string[];
   }
 
-  async function loadRecentEpisodes() {
+  function debounce<T extends (...args: any[]) => any>(
+    func: T,
+    wait: number
+  ): (...args: Parameters<T>) => void {
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    return function(...args: Parameters<T>) {
+      if (timeout) clearTimeout(timeout);
+      timeout = setTimeout(() => func(...args), wait);
+    };
+  }
+
+  async function loadEpisodes(searchQuery?: string) {
     const grid = document.getElementById('episode-grid');
+    const searchStatus = document.getElementById('search-status');
     if (!grid) return;
 
     try {
       // Show loading state
       grid.innerHTML = '<div class="loading">Loading episodes...</div>';
+      if (searchStatus) searchStatus.textContent = '';
 
-      const response = await fetch('https://api.strollcast.com/episodes');
+      const url = searchQuery
+        ? `https://api.strollcast.com/search?q=${encodeURIComponent(searchQuery)}`
+        : 'https://api.strollcast.com/episodes';
+
+      const response = await fetch(url);
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(data.error || 'Failed to fetch episodes');
       }
 
-      // Only show first 3 episodes on home page
-      const episodes: Episode[] = data.episodes.slice(0, 3);
+      const episodes: Episode[] = data.episodes;
+
+      // Update search status
+      if (searchStatus && searchQuery) {
+        searchStatus.textContent = `Found ${data.count || episodes.length} episode${episodes.length !== 1 ? 's' : ''}`;
+      }
 
       if (episodes.length === 0) {
-        grid.innerHTML = '<div class="error">No episodes available.</div>';
+        grid.innerHTML = searchQuery
+          ? `<div class="error">No episodes found matching "${searchQuery}". Try a different search term.</div>`
+          : '<div class="error">No episodes available.</div>';
         return;
       }
 
@@ -95,60 +114,87 @@ import Layout from '../layouts/Layout.astro';
     }
   }
 
-  // Load recent episodes on page load
-  loadRecentEpisodes();
+  // Handle search input
+  const searchInput = document.getElementById('search-input') as HTMLInputElement;
+  if (searchInput) {
+    // Load initial query from URL if present
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialQuery = urlParams.get('q');
+    if (initialQuery) {
+      searchInput.value = initialQuery;
+      loadEpisodes(initialQuery);
+    } else {
+      loadEpisodes();
+    }
+
+    // Debounced search handler
+    const handleSearch = debounce((query: string) => {
+      const trimmedQuery = query.trim();
+
+      // Update URL without reloading page
+      const newUrl = new URL(window.location.href);
+      if (trimmedQuery) {
+        newUrl.searchParams.set('q', trimmedQuery);
+      } else {
+        newUrl.searchParams.delete('q');
+      }
+      window.history.pushState({}, '', newUrl);
+
+      // Load episodes with search query
+      loadEpisodes(trimmedQuery || undefined);
+    }, 300);
+
+    searchInput.addEventListener('input', (e) => {
+      const target = e.target as HTMLInputElement;
+      handleSearch(target.value);
+    });
+  } else {
+    // Fallback: load all episodes if search input not found
+    loadEpisodes();
+  }
 </script>
 
 <style is:global>
-  .hero {
-    text-align: center;
-    margin-bottom: 3rem;
+  header {
+    margin-bottom: 2rem;
   }
 
-  .tagline {
-    font-size: 1.25rem;
+  .subtitle {
+    font-size: 1.125rem;
     color: var(--text-secondary);
+    margin-top: 0.5rem;
   }
 
-  .intro {
-    max-width: 700px;
-    margin: 0 auto 3rem;
-    text-align: center;
-  }
-
-  .intro p {
-    font-size: 1.1rem;
-    line-height: 1.8;
-  }
-
-  .episodes h2 {
+  .search-container {
     margin-bottom: 1.5rem;
   }
 
-  .view-all-container {
-    text-align: center;
-    margin-top: 2rem;
-    padding-top: 2rem;
-    border-top: 1px solid var(--border);
-  }
-
-  .view-all-link {
-    display: inline-block;
-    padding: 0.875rem 1.5rem;
-    background: var(--bg-card);
-    border: 2px solid var(--accent);
-    border-radius: 8px;
-    color: var(--accent);
-    font-weight: 500;
+  .search-input {
+    width: 100%;
+    padding: 0.875rem 1rem;
     font-size: 1rem;
-    transition: all 0.2s;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    transition: border-color 0.2s, box-shadow 0.2s;
   }
 
-  .view-all-link:hover {
-    background: var(--accent);
-    color: white;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+  .search-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+  }
+
+  .search-input::placeholder {
+    color: var(--text-secondary);
+  }
+
+  .search-status {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    min-height: 1.25rem;
   }
 
   .episode-grid {
