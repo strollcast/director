@@ -27,24 +27,32 @@ import Layout from '../../layouts/Layout.astro';
     <h3>Supported Voice Commands</h3>
     <div class="command-list">
       <div class="command">
-        <code>"Hey Google, pause in Strollcast"</code>
+        <code>"Hey Google, pause in Stroll Cast"</code>
         <span>Pause playback</span>
       </div>
       <div class="command">
-        <code>"Hey Google, play in Strollcast"</code>
+        <code>"Hey Google, play in Stroll Cast"</code>
         <span>Resume playback</span>
       </div>
       <div class="command">
-        <code>"Hey Google, skip forward 15 seconds in Strollcast"</code>
+        <code>"Hey Google, skip forward 15 seconds in Stroll Cast"</code>
         <span>Skip ahead</span>
       </div>
       <div class="command">
-        <code>"Hey Google, skip backward 15 seconds in Strollcast"</code>
+        <code>"Hey Google, skip backward 15 seconds in Stroll Cast"</code>
         <span>Go back</span>
       </div>
       <div class="command">
-        <code>"Hey Google, what's playing in Strollcast?"</code>
+        <code>"Hey Google, what's playing in Stroll Cast?"</code>
         <span>Show current episode info</span>
+      </div>
+      <div class="command">
+        <code>"Hey Google, jump to reference in Stroll Cast"</code>
+        <span>Play referenced episode from transcript</span>
+      </div>
+      <div class="command">
+        <code>"Hey Google, play previous in Stroll Cast"</code>
+        <span>Go back to previous episode</span>
       </div>
     </div>
 
@@ -82,7 +90,7 @@ import Layout from '../../layouts/Layout.astro';
     <ul>
       <li>Say "Hey, Google" or hold down the power button</li>
       <li>You should see <strong>Google Assistant</strong> interface (not Gemini)</li>
-      <li>Try a voice command: "Hey Google, pause in Strollcast" while playing</li>
+      <li>Try a voice command: "Hey Google, pause in Stroll Cast" while playing</li>
     </ul>
 
     <div class="tip">
@@ -101,7 +109,7 @@ import Layout from '../../layouts/Layout.astro';
     <ul>
       <li><strong>Check that Strollcast is playing</strong> — Voice commands only work when audio is actively playing</li>
       <li><strong>Verify Google Assistant</strong> — Make sure you're using "Hey Google" and it opens Google Assistant, not Gemini</li>
-      <li><strong>Include the app name</strong> — Always say "in Strollcast" at the end of commands</li>
+      <li><strong>Use "Stroll Cast" in commands</strong> — Say "in Stroll Cast" at the end of commands (not "Strollcast")</li>
       <li><strong>Check notification controls</strong> — If you can pause/play from the notification, the media session is working correctly</li>
     </ul>
 
