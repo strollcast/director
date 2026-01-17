@@ -105,6 +105,7 @@ func handleConcat(w http.ResponseWriter, r *http.Request) {
 		// FFmpeg concat format requires 'file' directive
 		listContent += fmt.Sprintf("file '%s'\n", segmentPath)
 	}
+	fmt.Printf("[%s] Done: download.\n", req.EpisodeID)
 
 	if err := os.WriteFile(listFile, []byte(listContent), 0644); err != nil {
 		sendError(w, fmt.Sprintf("Failed to write list file: %v", err), http.StatusInternalServerError)
@@ -149,6 +150,7 @@ func handleConcat(w http.ResponseWriter, r *http.Request) {
 		sendError(w, fmt.Sprintf("FFmpeg failed: %v\nStderr: %s", err, stderr.String()), http.StatusInternalServerError)
 		return
 	}
+	fmt.Printf("[%s] Done: FFmpeg concatenation and metadata to %s.\n", req.EpisodeID, outputPath)
 
 	// Get duration using ffprobe
 	fmt.Printf("[%s] Getting duration with ffprobe...\n", req.EpisodeID)
@@ -167,11 +169,12 @@ func handleConcat(w http.ResponseWriter, r *http.Request) {
 	fileSize := fileInfo.Size()
 
 	// Upload to output URL
-	fmt.Printf("[%s] Uploading result...\n", req.EpisodeID)
+	fmt.Printf("[%s] Uploading result to %s..\n", req.EpisodeID, req.OutputURL)
 	if err := uploadFile(outputPath, req.OutputURL); err != nil {
 		sendError(w, fmt.Sprintf("Failed to upload result: %v", err), http.StatusInternalServerError)
 		return
 	}
+	fmt.Printf("[%s] Done: uploading result.\n", req.EpisodeID)
 
 	// Send success response
 	w.Header().Set("Content-Type", "application/json")
