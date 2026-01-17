@@ -7,9 +7,9 @@ import {
   getScriptMetadata,
 } from './github';
 
-// Mock global fetch
+// Mock fetch using vitest's stubGlobal
 const mockFetch = vi.fn();
-global.fetch = mockFetch;
+vi.stubGlobal('fetch', mockFetch);
 
 const testConfig: GitHubConfig = {
   token: 'test-token',

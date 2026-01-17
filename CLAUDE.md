@@ -124,3 +124,51 @@ This queues the job which:
 ## Audio URLs
 
 Episodes are served from: `https://released.strollcast.com/episodes/{episode_id}/{episode_id}.mp3`
+
+## FFmpeg Container Lifecycle
+
+The FFmpeg container processes audio concatenation jobs that can take 10-40 minutes. To prevent the container from being killed mid-processing:
+
+### Heartbeat Mechanism
+
+- **Container → Worker**: Every 2 minutes, the Go container sends a heartbeat to `/heartbeat`
+- **Worker response**: Calls `renewActivityTimeout()` to reset the 5-minute `sleepAfter` timer
+- **Automatic start/stop**: Heartbeats start when a job begins, stop on completion or error
+
+### Container Status Endpoint
+
+Query the container's current state via `GET /status`:
+```json
+{
+  "state": "processing",
+  "job_id": "episode-123",
+  "started_at": "2026-01-17T10:30:00Z",
+  "segments_total": 150,
+  "segments_downloaded": 75,
+  "last_error": "",
+  "last_heartbeat": "2026-01-17T10:32:00Z"
+}
+```
+
+States: `idle`, `processing`, `error`
+
+### Timeouts & Limits
+
+- **sleepAfter**: 5 minutes (container goes to sleep after inactivity)
+- **Heartbeat interval**: 2 minutes (must be < sleepAfter)
+- **Max processing time**: 60 minutes (prevents zombie containers)
+- **Max instances**: 5 concurrent containers
+
+### Graceful Shutdown
+
+On SIGTERM:
+1. Cancels FFmpeg process if running
+2. Cleans up temp directory
+3. Logs shutdown event
+
+## Active Technologies
+- TypeScript (Worker/Durable Object), Go 1.21+ (Container) + `@cloudflare/containers` (Worker), standard library (Go) (001-container-keepalive)
+- Cloudflare R2 (audio files), D1 (job metadata) (001-container-keepalive)
+
+## Recent Changes
+- 001-container-keepalive: Added TypeScript (Worker/Durable Object), Go 1.21+ (Container) + `@cloudflare/containers` (Worker), standard library (Go)

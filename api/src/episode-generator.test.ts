@@ -150,8 +150,8 @@ describe('generateAudioSegments', () => {
     } as unknown as R2Bucket;
 
     const segments = [
-      { speaker: 'ERIC', text: 'Hello world' },
-      { speaker: 'MAYA', text: 'Welcome' },
+      { speaker: 'ERIC', text: 'Hello world', vttText: 'Hello world' },
+      { speaker: 'MAYA', text: 'Welcome', vttText: 'Welcome' },
     ];
 
     const result = await generateAudioSegments(
@@ -178,9 +178,9 @@ describe('generateAudioSegments', () => {
     } as unknown as R2Bucket;
 
     const segments = [
-      { speaker: 'ERIC', text: 'Before' },
-      { speaker: 'PAUSE', text: null },
-      { speaker: 'MAYA', text: 'After' },
+      { speaker: 'ERIC', text: 'Before', vttText: 'Before' },
+      { speaker: 'PAUSE', text: null, vttText: null },
+      { speaker: 'MAYA', text: 'After', vttText: 'After' },
     ];
 
     const result = await generateAudioSegments(
@@ -203,8 +203,8 @@ describe('generateAudioSegments', () => {
     } as unknown as R2Bucket;
 
     const segments = [
-      { speaker: 'ERIC', text: null },
-      { speaker: 'MAYA', text: null },
+      { speaker: 'ERIC', text: null, vttText: null },
+      { speaker: 'MAYA', text: null, vttText: null },
     ];
 
     const result = await generateAudioSegments(

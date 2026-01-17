@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { generateTranscript, fetchArxivMetadata } from './transcript';
 
 // Get API key from environment for integration tests
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+// Using import.meta.env for Vite compatibility
+const ANTHROPIC_API_KEY = (import.meta as ImportMeta & { env: Record<string, string | undefined> }).env?.ANTHROPIC_API_KEY;
 
 // Fake arXiv metadata based on 2307.08691 (S-LoRA paper)
 const FAKE_ARXIV_RESPONSE = `<?xml version="1.0" encoding="UTF-8"?>

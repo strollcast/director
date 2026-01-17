@@ -29,6 +29,48 @@ export class FFmpegContainer extends Container {
     // Handle the sleep alarm - this is called when sleepAfter duration elapses
     console.log("FFmpeg container alarm triggered - sleep timeout reached");
   }
+
+  /**
+   * Handle heartbeat requests from the container to renew activity timeout.
+   * This prevents the container from being killed during long-running FFmpeg jobs.
+   */
+  async handleHeartbeat(request: Request): Promise<Response> {
+    try {
+      const body = await request.json() as { job_id: string; state: string; progress?: number };
+      console.log(`Heartbeat received for job: ${body.job_id} (state: ${body.state}, progress: ${body.progress ?? 'N/A'})`);
+
+      // Renew the activity timeout to prevent sleepAfter from triggering
+      await this.renewActivityTimeout();
+      console.log("Activity timeout renewed");
+
+      return Response.json({
+        acknowledged: true,
+        timeout_extended: true,
+      });
+    } catch (error) {
+      console.error("Heartbeat handler error:", error);
+      return Response.json({
+        acknowledged: false,
+        timeout_extended: false,
+        error: String(error),
+      }, { status: 500 });
+    }
+  }
+
+  /**
+   * Override fetch to handle heartbeat requests before passing to container.
+   */
+  override async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+
+    // Handle heartbeat requests directly in the Durable Object
+    if (url.pathname === "/heartbeat" && request.method === "POST") {
+      return this.handleHeartbeat(request);
+    }
+
+    // Pass all other requests to the container
+    return super.fetch(request);
+  }
 }
 
 export interface Env {
