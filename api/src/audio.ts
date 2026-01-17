@@ -43,8 +43,11 @@ export function parseScript(scriptContent: string): Segment[] {
       // For TTS: Replace markdown links [text](url) with just the text
       let ttsText = cleanText.replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1");
 
-      // For VTT: Keep markdown links as-is
-      let vttText = cleanText;
+      // For VTT: Convert link:arxiv/XXXX to full strollcast.com paper URLs
+      let vttText = cleanText.replace(
+        /\[([^\]]+)\]\(link:arxiv\/([^\)]+)\)/g,
+        "[$1](https://strollcast.com/paper/arxiv/$2)"
+      );
 
       if (ttsText && (speaker === "ERIC" || speaker === "MAYA")) {
         segments.push({ speaker, text: ttsText, vttText });

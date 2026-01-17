@@ -66,6 +66,33 @@ More random text
     expect(segments[0].text).toBe('Compare ZeRO with Megatron-LM for training.');
     expect(segments[0].vttText).toBe('Compare [ZeRO](https://arxiv.org/abs/1910.02054) with [Megatron-LM](https://arxiv.org/abs/2104.04473) for training.');
   });
+
+  it('converts link:arxiv/ URLs to full strollcast.com paper URLs', () => {
+    const script = `**MAYA:** This builds on the [LoRA technique](link:arxiv/2106.09685) for fine-tuning.`;
+    const segments = parseScript(script);
+
+    expect(segments).toHaveLength(1);
+    expect(segments[0].text).toBe('This builds on the LoRA technique for fine-tuning.');
+    expect(segments[0].vttText).toBe('This builds on the [LoRA technique](https://strollcast.com/paper/arxiv/2106.09685) for fine-tuning.');
+  });
+
+  it('handles multiple link:arxiv/ URLs in one line', () => {
+    const script = `**ERIC:** Combining [LoRA](link:arxiv/2106.09685) with [Attention](link:arxiv/1706.03762) techniques.`;
+    const segments = parseScript(script);
+
+    expect(segments).toHaveLength(1);
+    expect(segments[0].text).toBe('Combining LoRA with Attention techniques.');
+    expect(segments[0].vttText).toBe('Combining [LoRA](https://strollcast.com/paper/arxiv/2106.09685) with [Attention](https://strollcast.com/paper/arxiv/1706.03762) techniques.');
+  });
+
+  it('handles mixed link:arxiv/ and regular URLs', () => {
+    const script = `**MAYA:** See [LoRA](link:arxiv/2106.09685) and [GitHub](https://github.com/example).`;
+    const segments = parseScript(script);
+
+    expect(segments).toHaveLength(1);
+    expect(segments[0].text).toBe('See LoRA and GitHub.');
+    expect(segments[0].vttText).toBe('See [LoRA](https://strollcast.com/paper/arxiv/2106.09685) and [GitHub](https://github.com/example).');
+  });
 });
 
 describe('getInworldDuration', () => {
