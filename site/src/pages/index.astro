@@ -22,6 +22,23 @@ import Layout from '../layouts/Layout.astro';
       <a href="/episodes" class="view-all-link">View all episodes →</a>
     </div>
   </section>
+
+  <section class="testing">
+    <h2>Help with Testing</h2>
+    <p>
+      We're looking for testers to help improve the Strollcast mobile apps. Get early access to new features and help shape the app's development.
+    </p>
+    <div class="testing-links">
+      <a href="/support/android#testing" class="testing-link">
+        <span class="platform">Android</span>
+        <span class="description">Join the testers group on Google Play</span>
+      </a>
+      <a href="/support/ios#testing" class="testing-link">
+        <span class="platform">iOS</span>
+        <span class="description">Build from source with Xcode</span>
+      </a>
+    </div>
+  </section>
 </Layout>
 
 <script>
@@ -274,5 +291,57 @@ import Layout from '../layouts/Layout.astro';
     .btn {
       text-align: center;
     }
+  }
+
+  .testing {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+    text-align: center;
+  }
+
+  .testing h2 {
+    margin-bottom: 1rem;
+  }
+
+  .testing p {
+    max-width: 600px;
+    margin: 0 auto 1.5rem;
+    color: var(--text-secondary);
+  }
+
+  .testing-links {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .testing-link {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem 1.5rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.2s;
+    min-width: 200px;
+  }
+
+  .testing-link:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+
+  .testing-link .platform {
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 0.25rem;
+  }
+
+  .testing-link .description {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
   }
 </style>

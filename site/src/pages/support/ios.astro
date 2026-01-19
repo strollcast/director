@@ -20,7 +20,7 @@ import Layout from '../../layouts/Layout.astro';
       </figure>
     </div>
 
-    <h2>Siri Voice Commands</h2>
+    <h2 id="siri-commands"><a href="#siri-commands">Siri Voice Commands</a></h2>
     <p>
       The Strollcast iOS app supports hands-free voice control through Siri. You can use Siri Shortcuts to pause, play, skip, navigate to references, and more.
     </p>
@@ -53,7 +53,7 @@ import Layout from '../../layouts/Layout.astro';
       </div>
     </div>
 
-    <h2>Taking Notes</h2>
+    <h2 id="taking-notes"><a href="#taking-notes">Taking Notes</a></h2>
     <p>
       The Strollcast app allows you to take timestamped notes while listening to episodes. Notes are saved with the exact playback position and can be synced to your Zotero library.
     </p>
@@ -81,7 +81,7 @@ import Layout from '../../layouts/Layout.astro';
       <li><strong>Notes are organized by episode</strong> — Switch between episodes in the Notes tab</li>
     </ul>
 
-    <h2>Zotero Integration</h2>
+    <h2 id="zotero"><a href="#zotero">Zotero Integration</a></h2>
     <p>
       Strollcast can automatically sync episodes and notes to your Zotero library, making it easy to integrate podcast notes with your research workflow.
     </p>
@@ -100,7 +100,7 @@ import Layout from '../../layouts/Layout.astro';
       <li>Notes include the playback timestamp for easy reference</li>
     </ul>
 
-    <h2>Clickable Transcript Links</h2>
+    <h2 id="transcript-links"><a href="#transcript-links">Clickable Transcript Links</a></h2>
     <p>
       Some episodes include interactive transcripts with clickable links to referenced episodes or papers. When you see a link in the transcript, you can tap it to navigate directly to the referenced content.
     </p>
@@ -112,7 +112,7 @@ import Layout from '../../layouts/Layout.astro';
       <li>For episode references, the app will automatically load and start playing the referenced episode</li>
     </ol>
 
-    <h2>Troubleshooting</h2>
+    <h2 id="troubleshooting"><a href="#troubleshooting">Troubleshooting</a></h2>
 
     <h3>Siri commands not working?</h3>
     <ul>
@@ -135,7 +135,19 @@ import Layout from '../../layouts/Layout.astro';
       <li><strong>Check internet connection</strong> — Syncing requires an active connection</li>
     </ul>
 
-    <h2>More Help</h2>
+    <h2 id="testing"><a href="#testing">Help with Testing</a></h2>
+    <p>
+      The iOS app is currently in development. You can help test by building it from source.
+    </p>
+    <h3>How to Build from Source</h3>
+    <ol>
+      <li><strong>Clone the repository</strong> — Get the source from <a href="https://github.com/strollcast/StrollcastApp" target="_blank" rel="noopener">GitHub</a></li>
+      <li><strong>Open in Xcode</strong> — Open <code>StrollcastApp.xcodeproj</code></li>
+      <li><strong>Build and run</strong> — Press Cmd+R to build and run on your device or simulator</li>
+      <li><strong>Report issues</strong> — Submit feedback via <a href="https://github.com/strollcast/StrollcastApp/issues" target="_blank" rel="noopener">GitHub Issues</a></li>
+    </ol>
+
+    <h2 id="more-help"><a href="#more-help">More Help</a></h2>
     <p>
       For additional support or to report issues, visit our <a href="https://github.com/strollcast/StrollcastApp/issues" target="_blank" rel="noopener">GitHub Issues</a> page.
     </p>
@@ -158,6 +170,15 @@ import Layout from '../../layouts/Layout.astro';
 
   .content h2 {
     margin-top: 3rem;
+  }
+
+  .content h2 a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .content h2 a:hover {
+    text-decoration: underline;
   }
 
   .content h2:first-of-type {
