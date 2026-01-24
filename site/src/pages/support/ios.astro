@@ -125,7 +125,7 @@ import Layout from '../../layouts/Layout.astro';
     <ul>
       <li><strong>Check your internet connection</strong> — Episodes need to be downloaded or streamed</li>
       <li><strong>Restart the app</strong> — Force quit and reopen</li>
-      <li><strong>Update the app</strong> — Make sure you have the latest version from TestFlight</li>
+      <li><strong>Update the app</strong> — Make sure you have the latest version from the App Store</li>
     </ul>
 
     <h3>Zotero sync not working?</h3>
@@ -135,17 +135,13 @@ import Layout from '../../layouts/Layout.astro';
       <li><strong>Check internet connection</strong> — Syncing requires an active connection</li>
     </ul>
 
-    <h2 id="testing"><a href="#testing">Help with Testing</a></h2>
+    <h2 id="download"><a href="#download">Download</a></h2>
     <p>
-      The iOS app is currently in development. You can help test by building it from source.
+      Get Strollcast from the App Store.
     </p>
-    <h3>How to Build from Source</h3>
-    <ol>
-      <li><strong>Clone the repository</strong> — Get the source from <a href="https://github.com/strollcast/StrollcastApp" target="_blank" rel="noopener">GitHub</a></li>
-      <li><strong>Open in Xcode</strong> — Open <code>StrollcastApp.xcodeproj</code></li>
-      <li><strong>Build and run</strong> — Press Cmd+R to build and run on your device or simulator</li>
-      <li><strong>Report issues</strong> — Submit feedback via <a href="https://github.com/strollcast/StrollcastApp/issues" target="_blank" rel="noopener">GitHub Issues</a></li>
-    </ol>
+    <a href="https://apps.apple.com/us/app/strollcast/id6758072315" target="_blank" rel="noopener" class="app-store-link">
+      <img src="/badges/app-store.svg" alt="Download on the App Store" height="50" />
+    </a>
 
     <h2 id="more-help"><a href="#more-help">More Help</a></h2>
     <p>
@@ -285,5 +281,20 @@ import Layout from '../../layouts/Layout.astro';
     .screenshots img {
       max-height: 300px;
     }
+  }
+
+  .app-store-link {
+    display: inline-block;
+    transition: transform 0.2s, opacity 0.2s;
+  }
+
+  .app-store-link:hover {
+    transform: translateY(-2px);
+    opacity: 0.9;
+  }
+
+  .app-store-link img {
+    height: 50px;
+    width: auto;
   }
 </style>

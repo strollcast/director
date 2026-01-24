@@ -23,19 +23,14 @@ import Layout from '../layouts/Layout.astro';
     </div>
   </section>
 
-  <section class="testing">
-    <h2>Help with Testing</h2>
+  <section class="download-apps">
+    <h2>Get the App</h2>
     <p>
-      We're looking for testers to help improve the Strollcast mobile apps. Get early access to new features and help shape the app's development.
+      Listen on the go with our mobile apps. Download episodes, take timestamped notes, and pick up where you left off.
     </p>
-    <div class="testing-links">
-      <a href="/support/android#testing" class="testing-link">
-        <span class="platform">Android</span>
-        <span class="description">Join the testers group on Google Play</span>
-      </a>
-      <a href="/support/ios#testing" class="testing-link">
-        <span class="platform">iOS</span>
-        <span class="description">Build from source with Xcode</span>
+    <div class="store-badges">
+      <a href="https://apps.apple.com/us/app/strollcast/id6758072315" target="_blank" rel="noopener noreferrer" class="store-badge">
+        <img src="/badges/app-store.svg" alt="Download on the App Store" height="50" />
       </a>
     </div>
   </section>
@@ -293,55 +288,41 @@ import Layout from '../layouts/Layout.astro';
     }
   }
 
-  .testing {
+  .download-apps {
     margin-top: 3rem;
     padding-top: 2rem;
     border-top: 1px solid var(--border);
     text-align: center;
   }
 
-  .testing h2 {
+  .download-apps h2 {
     margin-bottom: 1rem;
   }
 
-  .testing p {
+  .download-apps p {
     max-width: 600px;
     margin: 0 auto 1.5rem;
     color: var(--text-secondary);
   }
 
-  .testing-links {
+  .store-badges {
     display: flex;
     gap: 1rem;
     justify-content: center;
     flex-wrap: wrap;
   }
 
-  .testing-link {
-    display: flex;
-    flex-direction: column;
-    padding: 1rem 1.5rem;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    text-decoration: none;
-    transition: all 0.2s;
-    min-width: 200px;
+  .store-badge {
+    transition: transform 0.2s, opacity 0.2s;
   }
 
-  .testing-link:hover {
-    border-color: var(--accent);
+  .store-badge:hover {
     transform: translateY(-2px);
+    opacity: 0.9;
   }
 
-  .testing-link .platform {
-    font-weight: 600;
-    color: var(--accent);
-    margin-bottom: 0.25rem;
-  }
-
-  .testing-link .description {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
+  .store-badge img {
+    height: 50px;
+    width: auto;
   }
 </style>
